@@ -53,7 +53,10 @@
   "Describe is a public function for technical reasons. Do not use directly."
   [ren make-rel x]
   (letfn [(f [x]
-             (cond (sequential? x)
+             (cond (-> x meta :opaque)
+                   nil
+
+                   (sequential? x)
                    (cons (make-rel list-count-rel (ren x) (count x))
                          (mapcat (fn [i v]
                                    (cons (make-rel list-element-rel (ren x) i (ren v))

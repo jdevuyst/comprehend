@@ -154,6 +154,15 @@
       (is (= (comprehend (indexed-set [[1] 2] 3)
                          [[x] y]
                          x)
+             [1])))
+    (testing "Opacity"
+      (is (= (set (comprehend (indexed-set #{[1] ^:opaque [2]})
+                              #{x}
+                              x))
+             #{[1] [2]}))
+      (is (= (comprehend (indexed-set #{[1] ^:opaque [2]})
+                              #{[x]}
+                              x)
              [1]))))
   (testing "Other"
     (is (indexed-set? (indexed-set 1 2)))
