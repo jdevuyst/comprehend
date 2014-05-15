@@ -3,20 +3,23 @@
             [clojure.core.logic.protocols :as lp]
             [clojure.core.logic.pldb :as pldb]))
 
-(declare conj* indexed-set count* seq* contains?* get*)
+(declare conj* indexed-set count* seq* contains?* get* equiv?*)
 
 (deftype Set [m idx]
+  clojure.lang.IHashEq
+  (hasheq [this] (-> this .-idx hash))
   clojure.lang.IPersistentSet
-  (seq [this] (seq* this)) ;ISeq seq()
-  (count [this] (count* this)) ;int count()
-  (cons [this o] (conj* this o)) ;IPersistentCollection cons(Object o)
-  (empty [this] (indexed-set)) ;IPersistentCollection empty()
-  ;(equiv [this o] (.equiv (set this) o)) ;boolean equiv(Object o)
-  (disjoin [this k] (assert false "disjoin not implemented")) ;IPersistentSet disjoin(Object key)
-  (contains [this k] (contains?* this k)) ;boolean contains(Object key)
-  (get [this k] (get* this k)) ;Object get(Object key)
-  ;(equals [this o] (.equals (set this) o)) ;boolean equiv(Object o)
-  )
+  (seq [this] (seq* this))
+  (count [this] (count* this))
+  (cons [this o] (conj* this o))
+  (empty [this] (indexed-set))
+  (equals [this o] (assert false))
+  (equiv [this o] (or (identical? this o)
+                      (and (= Set (type o))
+                           (.equiv (.-idx this) (.-idx o)))))
+  (disjoin [this k] (assert false "disjoin not implemented"))
+  (contains [this k] (contains?* this k))
+  (get [this k] (get* this k)))
 
 (pldb/db-rel toplevel-pred ^:index v)
 (pldb/db-rel set-element-rel ^:index s ^:index v)
@@ -121,9 +124,7 @@
   (comprehend s x x))
 
 (defn contains?* [s k]
-  (-> (comprehend s k k)
-      empty?
-      not))
+  (-> (comprehend s k k) empty? not))
 
 (defn get* [s k]
   (first (comprehend s k k)))

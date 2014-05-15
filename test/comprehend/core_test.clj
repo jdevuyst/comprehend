@@ -4,7 +4,7 @@
 
 (let [A (hash-set 1 2 3)
       B (apply indexed-set A)]
-  (defmacro test-set-equiv [varname expr]
+  (defmacro invariance-test [varname expr]
     `(is (= ~@(map (fn [X]
                      `(let [~varname ~X]
                         ~expr))
@@ -12,18 +12,18 @@
 
 (deftest match-test
   (testing "IPersistentSet"
-    (test-set-equiv S (set (seq S)))
-    (test-set-equiv S (set S))
-    (test-set-equiv S (count S))
-    (test-set-equiv S (set (cons 0 S)))
-    (test-set-equiv S (set (conj S 0)))
-    ; (test-set-equiv S S)
-    ; (test-set-equiv S (disj S (first (seq S))))
-    (test-set-equiv S (contains? S (first (seq S))))
-    (test-set-equiv S (contains? S (gensym)))
-    (test-set-equiv S (get S (apply min (seq S))))
-    (test-set-equiv S (get S (gensym)))
-    )
+    (invariance-test S (set (seq S)))
+    (invariance-test S (set S))
+    (invariance-test S (count S))
+    (invariance-test S (set (cons 0 S)))
+    (invariance-test S (set (conj S 0)))
+    (is (= (empty (indexed-set 1 2 3)) (indexed-set)))
+    ; (invariance-test S S) ; TO DO: need to extend java.lang.Set (?)
+    ; (invariance-test S (disj S (first (seq S))))
+    (invariance-test S (contains? S (first (seq S))))
+    (invariance-test S (contains? S (gensym)))
+    (invariance-test S (get S (apply min (seq S))))
+    (invariance-test S (get S (gensym))))
   (testing "Sets != lists != maps"
     (is (not= (comprehend (indexed-set #{1})
                           {x y}
