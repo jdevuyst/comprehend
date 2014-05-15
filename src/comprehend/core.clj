@@ -13,7 +13,6 @@
   (count [this] (count* this))
   (cons [this o] (conj* this o))
   (empty [this] (indexed-set))
-  (equals [this o] (assert false))
   (equiv [this o] (or (identical? this o)
                       (and (= Set (type o))
                            (.equiv (.-idx this) (.-idx o)))))
@@ -91,10 +90,9 @@
   ([o] (conj* (indexed-set) o))
   ([o & os] (reduce conj* (indexed-set o) os)))
 
-(defn- disj* [s o]
-  (assert false))
-
-
+(defn- disj* [s o] ; TO DO: disj* is currently leaky!
+  (Set. (.-m s)
+        (pldb/db-retraction (.-idx s) toplevel-pred (hash o))))
 
 (defmacro comprehend [s & rdecl]
   (assert (>= (count rdecl) 2) "syntax: (comprehend s pattern+ expr)")
