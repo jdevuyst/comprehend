@@ -113,6 +113,10 @@
                        [x true]
                        x)
            []))
+    (is (= (comprehend (indexed-set [true false])
+                       [x (identity false)]
+                       x)
+           [true]))
     (is (= (comprehend (indexed-set ['a 'b])
                        [x 'b]
                        x)
@@ -126,6 +130,11 @@
                        x)
            [1])))
   (testing "Subpatterns"
+    (is (= (comprehend (indexed-set [1 2] [ 2 3])
+                         [a b]
+                         [b c]
+                         [a c])
+           [[1 3]]))
     (is (= (set (comprehend (indexed-set [[1] 2] 3)
                             x
                             x))

@@ -3,7 +3,7 @@
             [clojure.core.logic.protocols :as lp]
             [clojure.core.logic.pldb :as pldb]))
 
-(declare conj* indexed-set count* seq* contains?* get* equiv?*)
+(declare conj* indexed-set disj* count* seq* contains?* get* equiv?*)
 
 (deftype Set [m idx]
   clojure.lang.IHashEq
@@ -17,7 +17,7 @@
   (equiv [this o] (or (identical? this o)
                       (and (= Set (type o))
                            (.equiv (.-idx this) (.-idx o)))))
-  (disjoin [this k] (assert false "disjoin not implemented"))
+  (disjoin [this k] (disj* this k))
   (contains [this k] (contains?* this k))
   (get [this k] (get* this k)))
 
@@ -47,7 +47,9 @@
          (filter symbol?)
          (filter #(not (bound? env %))))))
 
-(defn describe [ren make-rel x]
+(defn describe
+  "Describe is a public function for technical reasons. Do not use directly."
+  [ren make-rel x]
   (letfn [(f [x]
              (cond (sequential? x)
                    (cons (make-rel list-count-rel (ren x) (count x))
@@ -89,42 +91,45 @@
   ([o] (conj* (indexed-set) o))
   ([o & os] (reduce conj* (indexed-set o) os)))
 
+(defn- disj* [s o]
+  (assert false))
+
+
+
 (defmacro comprehend [s & rdecl]
   (assert (>= (count rdecl) 2) "syntax: (comprehend s pattern+ expr)")
   (let [patterns (butlast rdecl)
         expr (last rdecl)
-        explicit-vars (->> patterns (extract-unbound-symbols &env) set)
-        ren-name (gensym "ren__")
-        make-goal-name (gensym "make-goal__")]
-    `(let [s# ~s]
+        explicit-vars (->> patterns (extract-unbound-symbols &env) set)]
+    `(let [s# ~s
+           lookup# #(map (partial (.-m s#)) %)]
        (for [[~@explicit-vars]
-             (map #(map (partial (.-m s#)) %)
+             (map lookup#
                   (pldb/with-db
                     (.-idx s#)
                     ; bogus var required when explicit-vars is empty
                     ; TO DO: should get rid of run* instead
                     (l/run* [~@explicit-vars bogus-var#]
-                            (let [~ren-name (memoize #(cond (~explicit-vars %) %
-                                                            (coll? %) (l/lvar)
-                                                            :else (hash %)))
-                                  ~make-goal-name (fn [f# & args#]
-                                                    (apply f# args#))]
-                              ~@(for [p patterns]
-                                  `(fn [a#]
-                                     (reduce lp/bind
-                                             a#
-                                             (describe ~ren-name ~make-goal-name ~p)))))
+                            (let [ren# (memoize #(cond (~explicit-vars %) %
+                                                       (coll? %) (l/lvar)
+                                                       :else (hash %)))
+                                  make-goal# (fn [f# & args#]
+                                               (apply f# args#))]
+                              (fn [a#]
+                                (->> [~@patterns]
+                                     (mapcat (partial describe ren# make-goal#))
+                                     (reduce lp/bind a#))))
                             (l/== bogus-var# nil))))]
          ~expr))))
 
-(defn count* [s]
+(defn- count* [s]
   (count (seq s))) ; TO DO: make more efficient!
 
-(defn seq* [s]
+(defn- seq* [s]
   (comprehend s x x))
 
-(defn contains?* [s k]
+(defn- contains?* [s k]
   (-> (comprehend s k k) empty? not))
 
-(defn get* [s k]
+(defn- get* [s k]
   (first (comprehend s k k)))
