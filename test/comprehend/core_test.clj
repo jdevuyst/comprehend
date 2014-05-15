@@ -2,7 +2,28 @@
   (:require [clojure.test :refer :all]
             [comprehend.core :refer :all]))
 
+(let [A (hash-set 1 2 3)
+      B (apply indexed-set A)]
+  (defmacro test-set-equiv [varname expr]
+    `(is (= ~@(map (fn [X]
+                     `(let [~varname ~X]
+                        ~expr))
+                   [A B])))))
+
 (deftest match-test
+  (testing "IPersistentSet"
+    (test-set-equiv S (set (seq S)))
+    (test-set-equiv S (set S))
+    (test-set-equiv S (count S))
+    (test-set-equiv S (set (cons 0 S)))
+    (test-set-equiv S (set (conj S 0)))
+    ; (test-set-equiv S S)
+    ; (test-set-equiv S (disj S (first (seq S))))
+    (test-set-equiv S (contains? S (first (seq S))))
+    (test-set-equiv S (contains? S (gensym)))
+    (test-set-equiv S (get S (apply min (seq S))))
+    (test-set-equiv S (get S (gensym)))
+    )
   (testing "Sets != lists != maps"
     (is (not= (comprehend (indexed-set #{1})
                           {x y}

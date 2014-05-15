@@ -3,7 +3,7 @@
             [clojure.core.logic.protocols :as lp]
             [clojure.core.logic.pldb :as pldb]))
 
-(declare conj* count* seq* get*)
+(declare conj* indexed-set count* seq* contains?* get*)
 
 (deftype Set [m idx]
   clojure.lang.IPersistentSet
@@ -11,10 +11,11 @@
   (count [this] (count* this)) ;int count()
   (cons [this o] (conj* this o)) ;IPersistentCollection cons(Object o)
   (empty [this] (indexed-set)) ;IPersistentCollection empty()
-  (equiv [this o] (.equiv (seq this) o)) ;boolean equiv(Object o)
-  (disjoin [this k] (assert false "not implemented")) ;IPersistentSet disjoin(Object key)
-  (contains [this k] (some? (.get this k))) ;boolean contains(Object key)
+  ;(equiv [this o] (.equiv (set this) o)) ;boolean equiv(Object o)
+  (disjoin [this k] (assert false "disjoin not implemented")) ;IPersistentSet disjoin(Object key)
+  (contains [this k] (contains?* this k)) ;boolean contains(Object key)
   (get [this k] (get* this k)) ;Object get(Object key)
+  ;(equals [this o] (.equals (set this) o)) ;boolean equiv(Object o)
   )
 
 (pldb/db-rel toplevel-pred ^:index v)
@@ -23,7 +24,10 @@
 (pldb/db-rel map-element-rel ^:index m ^:index k ^:index v)
 (pldb/db-rel list-count-rel ^:index l ^:index c)
 
-(letfn [(runtime-sequential? [x]
+(letfn [(bound? [env x]
+                (or (contains? env x)
+                    (resolve x)))
+        (runtime-sequential? [x]
                              (and (sequential? x)
                                   (not= [(first x) (symbol? (second x)) (count x)]
                                         ['quote true 2])))
@@ -34,11 +38,11 @@
                                     concat
                                     (mapcat squach))
                       :else [x]))]
-  (defn- extract-unbound-symbols [x]
+  (defn- extract-unbound-symbols [env x]
     (->> x
          squach
          (filter symbol?)
-         (filter (comp nil? resolve)))))
+         (filter #(not (bound? env %))))))
 
 (defn describe [ren make-rel x]
   (letfn [(f [x]
@@ -86,34 +90,40 @@
   (assert (>= (count rdecl) 2) "syntax: (comprehend s pattern+ expr)")
   (let [patterns (butlast rdecl)
         expr (last rdecl)
-        explicit-vars (-> patterns extract-unbound-symbols set)
+        explicit-vars (->> patterns (extract-unbound-symbols &env) set)
         ren-name (gensym "ren__")
-        make-rel-name (gensym "make-rel__")]
+        make-goal-name (gensym "make-goal__")]
     `(let [s# ~s]
        (for [[~@explicit-vars]
              (map #(map (partial (.-m s#)) %)
                   (pldb/with-db
                     (.-idx s#)
                     ; bogus var required when explicit-vars is empty
+                    ; TO DO: should get rid of run* instead
                     (l/run* [~@explicit-vars bogus-var#]
                             (let [~ren-name (memoize #(cond (~explicit-vars %) %
                                                             (coll? %) (l/lvar)
                                                             :else (hash %)))
-                                  ~make-rel-name (fn [f# & args#]
-                                                   (apply f# args#))]
+                                  ~make-goal-name (fn [f# & args#]
+                                                    (apply f# args#))]
                               ~@(for [p patterns]
                                   `(fn [a#]
                                      (reduce lp/bind
                                              a#
-                                             (describe ~ren-name ~make-rel-name ~p)))))
+                                             (describe ~ren-name ~make-goal-name ~p)))))
                             (l/== bogus-var# nil))))]
          ~expr))))
 
 (defn count* [s]
-  (assert false "not implemented"))
+  (count (seq s))) ; TO DO: make more efficient!
 
 (defn seq* [s]
-  (first (comprehend s x x)))
+  (comprehend s x x))
+
+(defn contains?* [s k]
+  (-> (comprehend s k k)
+      empty?
+      not))
 
 (defn get* [s k]
   (first (comprehend s k k)))
