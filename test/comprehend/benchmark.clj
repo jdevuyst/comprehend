@@ -20,14 +20,14 @@
     (concat (map vector nodes)
             (persistent! @!edges))))
 
-(println "Constructing graph")
+(println "Constructing a graph")
 
 (def n 150)
 (def G (time (vec (make-graph n n))))
 
-(println "Constructing indexed set")
+(println "Constructing an indexed set")
 
-(def S (reduce conj (c/indexed-set) G))
+(def S (time (reduce conj (c/indexed-set) G)))
 
 (println "Finding paths using comprehend")
 
