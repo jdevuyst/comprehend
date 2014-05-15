@@ -154,6 +154,9 @@
       (is (= (comprehend (indexed-set [[1] 2] 3)
                          [[x] y]
                          x)
-             [1])))))
+             [1]))))
+  (testing "Other"
+    (is (indexed-set? (indexed-set 1 2)))
+    (is (not (indexed-set? (hash-set 1 2))))))
 
 (run-tests)

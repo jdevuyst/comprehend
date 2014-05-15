@@ -3,7 +3,7 @@
             [clojure.core.logic.protocols :as lp]
             [clojure.core.logic.pldb :as pldb]))
 
-(declare conj* indexed-set disj* count* seq* contains?* get* equiv?*)
+(declare indexed-set? conj* indexed-set disj* count* seq* contains?* get* equiv?*)
 
 (deftype Set [m idx]
   clojure.lang.IHashEq
@@ -14,11 +14,14 @@
   (cons [this o] (conj* this o))
   (empty [this] (indexed-set))
   (equiv [this o] (or (identical? this o)
-                      (and (= Set (type o))
+                      (and (indexed-set? o)
                            (.equiv (.-idx this) (.-idx o)))))
   (disjoin [this k] (disj* this k))
   (contains [this k] (contains?* this k))
   (get [this k] (get* this k)))
+
+(defn indexed-set? [x]
+  (= Set (type x)))
 
 (pldb/db-rel toplevel-pred ^:index v)
 (pldb/db-rel set-element-rel ^:index s ^:index v)
