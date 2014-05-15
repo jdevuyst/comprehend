@@ -1,140 +1,119 @@
 (ns comprehend.core
   (:require [clojure.core.logic :as l]
+            [clojure.core.logic.protocols :as lp]
             [clojure.core.logic.pldb :as pldb]))
 
-(defn ugly-fix-for-sets []
-  (extend-protocol clojure.core.logic.protocols/IWalkTerm
-    clojure.lang.IPersistentCollection
-    (walk-term [v f]
-               v)))
+(declare conj* count* seq* get*)
 
-(declare empty-db-set into*)
-
-(deftype Set [content]
-  ; clojure.lang.IPersistentSet
-  ; (seq [this] :x) ;ISeq seq()
-  ; (count [this] :x) ;int count()
-  ; (cons [this o] :x) ;IPersistentCollection cons(Object o)
-  ; (empty [this] (empty-db-set)) ;IPersistentCollection empty()
-  ; (equiv [this o] :x) ;boolean equiv(Object o)
-  ; (disjoin [this k] :x) ;IPersistentSet disjoin(Object key)
-  ; (contains [this k] (some? (get this k))) ;boolean contains(Object key)
-  ; (get [this k] :x) ;Object get(Object key)
+(deftype Set [m idx]
+  clojure.lang.IPersistentSet
+  (seq [this] (seq* this)) ;ISeq seq()
+  (count [this] (count* this)) ;int count()
+  (cons [this o] (conj* this o)) ;IPersistentCollection cons(Object o)
+  (empty [this] (indexed-set)) ;IPersistentCollection empty()
+  (equiv [this o] (.equiv (seq this) o)) ;boolean equiv(Object o)
+  (disjoin [this k] (assert false "not implemented")) ;IPersistentSet disjoin(Object key)
+  (contains [this k] (some? (.get this k))) ;boolean contains(Object key)
+  (get [this k] (get* this k)) ;Object get(Object key)
   )
 
-(pldb/db-rel db-element-rel* ^:index v)
-(pldb/db-rel set-element-rel* ^:index l ^:index i ^:index v)
-(pldb/db-rel listlike-element-rel* ^:index l ^:index i ^:index v)
-(pldb/db-rel map-element-rel* ^:index m ^:index k ^:index v)
-(pldb/db-rel count-rel* ^:index l ^:index c)
+(pldb/db-rel toplevel-pred ^:index v)
+(pldb/db-rel set-element-rel ^:index s ^:index v)
+(pldb/db-rel list-element-rel ^:index l ^:index i ^:index v)
+(pldb/db-rel map-element-rel ^:index m ^:index k ^:index v)
+(pldb/db-rel list-count-rel ^:index l ^:index c)
 
-(defprotocol IParseMode
-  (listlike? [_ x])
-  (db-element-rel [_])
-  (set-element-rel [_])
-  (listlike-element-rel [_])
-  (map-element-rel [_])
-  (count-rel [_]))
+(letfn [(runtime-sequential? [x]
+                             (and (sequential? x)
+                                  (not= [(first x) (symbol? (second x)) (count x)]
+                                        ['quote true 2])))
+        (squach [x]
+                (cond (or (set? x) (runtime-sequential? x)) (mapcat squach x)
+                      (map? x) (->> x
+                                    ((juxt keys vals))
+                                    concat
+                                    (mapcat squach))
+                      :else [x]))]
+  (defn- extract-unbound-symbols [x]
+    (->> x
+         squach
+         (filter symbol?)
+         (filter (comp nil? resolve)))))
 
-(def ReaderParseMode
-  (reify IParseMode
-    (listlike? [_ x] (and (sequential? x)
-                          (not= (first x) 'quote)))
-    (db-element-rel [_] `(var-get ~(resolve 'db-element-rel*)))
-    (set-element-rel [_] `(var-get ~(resolve 'set-element-rel*)))
-    (listlike-element-rel [_] `(var-get ~(resolve 'listlike-element-rel*)))
-    (map-element-rel [_] `(var-get ~(resolve 'map-element-rel*)))
-    (count-rel [_] `(var-get ~(resolve 'count-rel*)))))
+(defn describe [ren make-rel x]
+  (letfn [(f [x]
+             (cond (sequential? x)
+                   (cons (make-rel list-count-rel (ren x) (count x))
+                         (mapcat (fn [i v]
+                                   (cons (make-rel list-element-rel (ren x) i (ren v))
+                                         (f v)))
+                                 (iterate inc 0)
+                                 x))
 
-(def ExtensionalParseMode
-  (reify IParseMode
-    (listlike? [_ x] (sequential? x))
-    (db-element-rel [_] db-element-rel*)
-    (set-element-rel [_] set-element-rel*)
-    (listlike-element-rel [_] listlike-element-rel*)
-    (map-element-rel [_] map-element-rel*)
-    (count-rel [_] count-rel*)))
+                   (map? x)
+                   (mapcat (fn [[k v]]
+                             (cons (make-rel map-element-rel (ren x) (ren k) (ren v))
+                                   (concat (f k)
+                                           (f v))))
+                           x)
 
-(def ^:dynamic *parse-mode*)
+                   (coll? x)
+                   (mapcat (fn [v]
+                             (cons (make-rel set-element-rel (ren x) (ren v))
+                                   (f v)))
+                           x)
 
-(defn- squach [x]
-  (cond (or (set? x) (listlike? *parse-mode* x)) (mapcat squach x)
-        (map? x) (mapcat squach (concat (keys x) (vals x)))
-        :else [x]))
+                   :else
+                   nil))]
+    (cons (make-rel toplevel-pred (ren x))
+          (f x))))
 
-(defn- extract-unbound-symbols [p]
-  (->> p
-       squach
-       (filter symbol?)
-       (filter (comp nil? resolve))))
+(defn- conj* [s o]
+  (let [!m (atom (transient (.-m s)))
+        ren (fn [o]
+              (swap! !m assoc! (hash o) o)
+              (hash o))
+        facts (describe ren vector o)]
+    (Set. (persistent! @!m)
+          (apply pldb/db-facts (.-idx s) facts))))
 
-(defn- pattern-facts [p]
-  (letfn [(pattern-facts [p]
-                         (cond (set? p)
-                               (concat (map (fn [v]
-                                              [(set-element-rel *parse-mode*) p nil v])
-                                            p)
-                                       (mapcat pattern-facts p))
-
-                               (listlike? *parse-mode* p)
-                               (concat (map (fn [i v]
-                                              [(listlike-element-rel *parse-mode*) p i v])
-                                            (iterate inc 0)
-                                            p)
-                                       [[(count-rel *parse-mode*) p (count p)]]
-                                       (mapcat pattern-facts p))
-
-                               (map? p)
-                               (concat (map (fn [[k v]]
-                                              [(map-element-rel *parse-mode*) p k v])
-                                            p)
-                                       (mapcat pattern-facts
-                                               (concat (keys p) (vals p))))
-
-                               :else
-                               nil))]
-    (cons [(db-element-rel *parse-mode*) p]
-          (pattern-facts p))))
+(defn indexed-set
+  ([] (Set. {} pldb/empty-db))
+  ([o] (conj* (indexed-set) o))
+  ([o & os] (reduce conj* (indexed-set o) os)))
 
 (defmacro comprehend [s & rdecl]
-  (assert (-> rdecl count (>= 2)) "comprehend arguments: db pattern(s) expr")
-  (binding [*parse-mode* ReaderParseMode]
-    (let [ps (butlast rdecl)
-          expr (last rdecl)
-          explicit-vars (doall (mapcat extract-unbound-symbols ps))
-          !implicit-vars (atom nil)
-          constraints (letfn [(free-colls [x]
-                                          (if (or (set? x)
-                                                  (listlike? ReaderParseMode x)
-                                                  (map? x))
-                                            (let [symb (-> (str "hash__" (hash x))
-                                                           symbol)]
-                                              (swap! !implicit-vars conj symb)
-                                              symb)
-                                            x))]
-                        (->> ps
-                             (mapcat pattern-facts)
-                             (map #(cons (first %)
-                                         (->> (rest %)
-                                              (map free-colls)
-                                              doall)))
-                             doall))]
-      `(for [[~@explicit-vars] (pldb/with-db
-                                 (.-content ~s)
-                                 ; bogus var required when explicit-vars is empty
-                                 (l/run* [~@explicit-vars bogus-var#]
-                                         (l/fresh [~@@!implicit-vars]
-                                                  ~@constraints
-                                                  (l/== bogus-var# nil))))]
+  (assert (>= (count rdecl) 2) "syntax: (comprehend s pattern+ expr)")
+  (let [patterns (butlast rdecl)
+        expr (last rdecl)
+        explicit-vars (-> patterns extract-unbound-symbols set)
+        ren-name (gensym "ren__")
+        make-rel-name (gensym "make-rel__")]
+    `(let [s# ~s]
+       (for [[~@explicit-vars]
+             (map #(map (partial (.-m s#)) %)
+                  (pldb/with-db
+                    (.-idx s#)
+                    ; bogus var required when explicit-vars is empty
+                    (l/run* [~@explicit-vars bogus-var#]
+                            (let [~ren-name (memoize #(cond (~explicit-vars %) %
+                                                            (coll? %) (l/lvar)
+                                                            :else (hash %)))
+                                  ~make-rel-name (fn [f# & args#]
+                                                   (apply f# args#))]
+                              ~@(for [p patterns]
+                                  `(fn [a#]
+                                     (reduce lp/bind
+                                             a#
+                                             (describe ~ren-name ~make-rel-name ~p)))))
+                            (l/== bogus-var# nil))))]
          ~expr))))
 
-(def empty-db-set (Set. pldb/empty-db))
+(defn count* [s]
+  (assert false "not implemented"))
 
-(defn into-db-set [s facts-coll]
-  (binding [*parse-mode* ExtensionalParseMode]
-    (Set. (apply pldb/db-facts
-                 (.-content s)
-                 (doall (mapcat pattern-facts facts-coll))))))
+(defn seq* [s]
+  (first (comprehend s x x)))
 
-(defn db-set [& ps]
-  (into-db-set empty-db-set ps))
+(defn get* [s k]
+  (first (comprehend s k k)))
