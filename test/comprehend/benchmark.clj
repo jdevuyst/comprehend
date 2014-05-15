@@ -3,8 +3,8 @@
             [clojure.core.logic :as l]))
 
 (defn edge [source dest]
-  ; [source dest]
-  [[[[[[[source dest]]]]]]]
+  [source dest]
+  ; [[[[[[[source dest]]]]]]]
   )
 
 (defn make-graph
@@ -27,8 +27,8 @@
 
 (println "Constructing a graph")
 
-(def n 1000)
-(def G (time (vec (map vector (make-graph n n)))))
+(def n 150)
+(def G (time (vec (make-graph n n))))
 
 (println "Constructing an equivalent indexed set")
 
@@ -53,5 +53,6 @@
 
 (assert (= (* 2 n) (count G) (count S)))
 (assert (= (count v1) (count v2)))
+(assert (> (count v1) 0) "Try generating more edges")
 
 (println "OK")
