@@ -28,7 +28,7 @@ Creating indexed sets is no different than creating other collections in Clojure
 (c/indexed-set 1 2 3) ; indexed counterpart of #{1 2 3}
 ```
 
-The functions `cons`, `conj`, `disj`, `contains?`, `get`, `count`, `hash`, `empty`, and `seq` operate on indexed sets as expected.
+The functions `cons`, `conj`, `disj`, `contains?`, `get`, `count`, `hash`, `empty`, and `seq` operate on indexed sets as expected. Moreover, `(get s k)` = `(s k)` if `s` is an indexed set, and if `k` is a symbol or keyword then these are also equivalent to `(k s)`.
 
 Indexed sets shine when you want to perform pattern matching on them:
 
@@ -62,17 +62,17 @@ Like [core.match](https://github.com/clojure/core.match), vector patterns will m
 ; => '([1 2] [3 4])
 ```
 
-When a symbol that is not bound in the local scope is encountered in a pattern, it is interpreted as a logical variable. To wit,
+Similar to [core.match](https://github.com/clojure/core.match), unbound symbols are interpreted as logical variables:
 
 ```clojure
-(def bound-var 1)
+(def bound-symb 1)
 (c/comprehend (c/indexed-set [1 2] [3 4])
-              [bound-var unbound-var]
-              [bound-var unbound-var])
+              [bound-symb unbound-symb]
+              [bound-symb unbound-symb])
 ; => '([1 2])
 ```
 
-Notice that round brackets `()` in patterns are not interpreted as lists, contrary to [core.match](https://github.com/clojure/core.match). There's no need to as Comprehend considers sequential structures interchangeble, and so you can simply use square brackets `[]` to do pattern matching on lists. This means functions can be called in patterns:
+Notice that round brackets `()` in patterns are not interpreted as lists, contrary to [core.match](https://github.com/clojure/core.match). There's no need to as Comprehend considers sequential structures interchangeble, and so you can simply use square brackets `[]` to do pattern matching on lists. This has the advantage that functions can be called from within patterns:
 
 ```clojure
 (c/comprehend (c/indexed-set [0 1] [1 2])
@@ -91,7 +91,7 @@ Creating indexes for collections is slow. It is possible to disable indexing on 
 ; => '([1 [1]] [1 [2]])
 ```
 
-It's also possible to make subcollections opaque. This allows you to add a map such as `{:username "jdoe", :posts small-vector, :login-history ^::c/opaque big-vector}` without incurring the cost of indexing `big-vector`.
+It's also possible to make subcollections opaque. By way of example, this allows you to add `{:username "jdoe", :posts small-vector, :login-history ^::c/opaque big-vector}` to an indexed set without incurring the cost of indexing `big-vector`.
 
 Indexed sets are considered equivalent (modulo `=`) iff they index identical facts. Thus, `(c/indexed-set [1])` and `(c/indexed-set ^::c/opaque [1])` are considered different. Indexed sets are never equal to native Clojure sets.
 

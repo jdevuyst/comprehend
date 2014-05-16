@@ -29,9 +29,17 @@
                       (and (indexed-set? o)
                            (.equiv (.-idx this) (.-idx o)))))
   (disjoin [this k] (disj* this k))
-  (contains [this k] (-> this roots (contains? (-> k hash list))))
-  (get [this k] (if (contains? this k)
-                  ((.-m this) (hash k)))))
+  (contains [this k] (-> this roots (.contains (-> k hash list))))
+  (get [this k] (if (.contains this k)
+                  ((.-m this) (hash k))))
+  clojure.lang.IFn
+  (invoke [this k] (.get this k))
+  clojure.lang.ILookup
+  (valAt [this k] (.get this k))
+  Object
+  (toString [this] (-> this set .toString))
+  (equals [this o] (.equiv this o))
+  (hashCode [this] (.hasheq this)))
 
 (defn indexed-set? [x]
   (= Set (type x)))
