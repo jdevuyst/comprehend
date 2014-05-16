@@ -170,6 +170,10 @@
         (is (= (comprehend (indexed-set ^::c/opaque [1 [2]])
                            [1 [2]]
                            true)
+               [true]))
+        (is (= (c/comprehend (c/indexed-set [1] [2])
+                             [2]
+                             true)
                [true])))))
   (testing "Other"
     (is (indexed-set? (indexed-set 1 2)))
