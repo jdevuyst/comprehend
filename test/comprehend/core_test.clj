@@ -20,7 +20,7 @@
     (let [a (gensym)] (invariance-test S (set (conj S a))))
     (invariance-test S (set (conj S (first S))))
     (is (= (empty (indexed-set 1 2 3)) (indexed-set)))
-    ; (invariance-test S S) ; TO DO: need to extend java.lang.Set (?)
+    ; (invariance-test S S) ; TO DO: this seems to require subclassing java.lang.Set
     (let [a (gensym)] (invariance-test S (set (disj (conj S a) a))))
     (invariance-test S (set (disj S (gensym))))
     (invariance-test S (contains? S (first S)))
@@ -156,7 +156,7 @@
                          [[x] y]
                          x)
              [1])))
-    (testing "Opacity"
+    (testing "Opaqueness"
       (is (= (set (comprehend (indexed-set #{[1] ^::c/opaque [2]})
                               #{x}
                               x))
@@ -164,7 +164,12 @@
       (is (= (comprehend (indexed-set #{[1] ^::c/opaque [2]})
                               #{[x]}
                               x)
-             [1]))))
+             [1]))
+      (testing "Automatic hinting of opaqueness in patterns"
+       (is (= (comprehend (indexed-set ^::c/opaque [1 [2]])
+                              [1 [2]]
+                              true)
+             [true])))))
   (testing "Other"
     (is (indexed-set? (indexed-set 1 2)))
     (is (not (indexed-set? (hash-set 1 2))))))

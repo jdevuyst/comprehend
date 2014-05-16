@@ -1,7 +1,8 @@
 (ns comprehend.core
   (:require [clojure.core.logic :as l]
             [clojure.core.logic.protocols :as lp]
-            [clojure.core.logic.pldb :as pldb]))
+            [clojure.core.logic.pldb :as pldb]
+            [clojure.walk :as w]))
 
 (declare indexed-set? conj* indexed-set disj*)
 
@@ -103,11 +104,24 @@
   (Set. (.-m s)
         (pldb/db-retraction (.-idx s) roots-rel (hash o))))
 
+(defn- opaque-hint [var? p]
+  (w/postwalk (fn [x]
+                (if (coll? x)
+                  (with-meta x
+                             {::opaque (->> x
+                                            (filter #(or (var? %)
+                                                         (and (coll? %)
+                                                              (-> % meta ::opaque not))))
+                                            empty?)})
+                  x))
+              p))
+
 (defmacro comprehend [s & rdecl]
   (assert (>= (count rdecl) 2) "syntax: (comprehend s pattern+ expr)")
   (let [patterns (butlast rdecl)
         expr (last rdecl)
-        explicit-vars (->> patterns (unbound-symbols &env) set)]
+        explicit-vars (->> patterns (unbound-symbols &env) set)
+        patterns (map (partial opaque-hint explicit-vars) patterns)]
     `(let [s# ~s
            lookup# #(map (partial (.-m s#)) %)]
        (for [[~@explicit-vars]
