@@ -5,14 +5,14 @@
 
 (declare indexed-set? conj* indexed-set disj*)
 
-(pldb/db-rel toplevel-pred ^:index v)
+(pldb/db-rel roots-rel ^:index v)
 (pldb/db-rel set-element-rel ^:index s ^:index v)
 (pldb/db-rel list-element-rel ^:index l ^:index i ^:index v)
 (pldb/db-rel map-element-rel ^:index m ^:index k ^:index v)
 (pldb/db-rel list-count-rel ^:index l ^:index c)
 
 (defn- roots [s]
-  (-> toplevel-pred pldb/rel-key ((.-idx s)) ::pldb/unindexed))
+  (-> roots-rel pldb/rel-key ((.-idx s)) ::pldb/unindexed))
 
 (deftype Set [m idx]
   clojure.lang.IHashEq
@@ -35,10 +35,8 @@
   (= Set (type x)))
 
 (letfn [(bound? [env x]
-                (or (contains? env x)
-                    (resolve x)))
-        (qsymb? [x] (and (sequential? x)
-                         (= 2 (count x))
+                (or (contains? env x) (resolve x)))
+        (qsymb? [x] (and (= 2 (count x))
                          (= (first x) 'quote)
                          (symbol? (second x))))
         (squach [x]
@@ -48,7 +46,7 @@
                                     concat
                                     (mapcat squach))
                       :else [x]))]
-  (defn- extract-unbound-symbols [env x]
+  (defn- unbound-symbols [env x]
     (->> x
          squach
          (filter symbol?)
@@ -84,7 +82,7 @@
 
                    :else
                    nil))]
-    (cons (make-rel toplevel-pred (ren x))
+    (cons (make-rel roots-rel (ren x))
           (f x))))
 
 (defn- conj* [s o]
@@ -103,13 +101,13 @@
 
 (defn- disj* [s o] ; TO DO: disj* is currently leaky!
   (Set. (.-m s)
-        (pldb/db-retraction (.-idx s) toplevel-pred (hash o))))
+        (pldb/db-retraction (.-idx s) roots-rel (hash o))))
 
 (defmacro comprehend [s & rdecl]
   (assert (>= (count rdecl) 2) "syntax: (comprehend s pattern+ expr)")
   (let [patterns (butlast rdecl)
         expr (last rdecl)
-        explicit-vars (->> patterns (extract-unbound-symbols &env) set)]
+        explicit-vars (->> patterns (unbound-symbols &env) set)]
     `(let [s# ~s
            lookup# #(map (partial (.-m s#)) %)]
        (for [[~@explicit-vars]
