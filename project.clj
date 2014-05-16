@@ -1,5 +1,5 @@
 (defproject comprehend "0.1.0"
-  :description "Clojure library containing a setlike data type that is optimized for the idiom { ∀ patterns ⊆ S : expr }"
+  :description "Clojure library for pattern matching on indexed sets"
   :url "https://github.com/jdevuyst/comprehend"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}

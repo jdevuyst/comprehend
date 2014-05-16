@@ -10,7 +10,13 @@ Comprehend is powered by [core.logic](https://github.com/clojure/core.logic).
 
 ## Usage
 
-To start:
+To start, create a [Leiningen](http://leiningen.org) project and add the following dependency to `project.clj`:
+
+```clojure
+[comprehend "0.1.0"]
+```
+
+Next, load Comprehend as follows:
 
 ```clojure
 (require '[comprehend :as c])
@@ -19,7 +25,7 @@ To start:
 Creating indexed sets is no different than creating other collections in Clojure:
 
 ```clojure
-(indexed-set x y z) ; indexed counterpart of #{x y z}
+(c/indexed-set 1 2 3) ; indexed counterpart of #{1 2 3}
 ```
 
 The functions `cons`, `conj`, `disj`, `contains?`, `get`, `count`, `hash`, `empty`, and `seq` operate on indexed sets as expected.
