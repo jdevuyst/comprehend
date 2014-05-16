@@ -27,7 +27,7 @@
 
 (println "Constructing a graph")
 
-(def n 15)
+(def n 150)
 (def G (time (vec (make-graph n n))))
 
 (println "Constructing an equivalent indexed set")
