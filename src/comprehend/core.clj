@@ -133,7 +133,8 @@
                     ; TO DO: should get rid of run* instead
                     (l/run* [~@explicit-vars bogus-var#]
                             (let [ren# (memoize #(cond (~explicit-vars %) %
-                                                       (coll? %) (l/lvar)
+                                                       (and (coll? %)
+                                                            (-> % meta ::opaque not)) (l/lvar)
                                                        :else (hash %)))
                                   make-goal# (fn [f# & args#]
                                                (apply f# args#))]
