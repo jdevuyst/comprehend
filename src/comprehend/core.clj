@@ -6,6 +6,7 @@
 
 (declare indexed-set? conj* indexed-set disj*)
 
+; The following relations are subject to change in future versions
 (pldb/db-rel roots-rel ^:index v)
 (pldb/db-rel set-element-rel ^:index s ^:index v)
 (pldb/db-rel list-element-rel ^:index l ^:index i ^:index v)
@@ -19,7 +20,7 @@
   clojure.lang.IHashEq
   (hasheq [this] (-> this .-idx hash))
   clojure.lang.Counted
-  (count [this] (count (roots this)))
+  (count [this] (-> this roots count))
   clojure.lang.IPersistentSet
   (seq [this] (map (comp (.-m this) first) (roots this)))
   (cons [this o] (conj* this o))
