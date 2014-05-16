@@ -48,7 +48,7 @@ It is also possible to match on patterns in subcollections:
 ; => '(2)
 ```
 
-Like `core.match`, vector patterns will match only vectors of the same member count but map patterns will also match supermaps:
+Like [core.match](https://github.com/clojure/core.match), vector patterns will match only vectors of the same member count but map patterns will also match supermaps:
 
 ```clojure
 (c/comprehend (c/indexed-set {1 2 3 4})
@@ -62,12 +62,12 @@ When a symbol that is not bound in the local scope is encountered in a pattern, 
 ```clojure
 (def bound-var 1)
 (c/comprehend (c/indexed-set [1 2] [3 4])
-              [bound-var y]
-              [bound-var y])
+              [bound-var unbound-var]
+              [bound-var unbound-var])
 ; => '([1 2])
 ```
 
-Notice that round brackets `()` in patterns are not interpreted as lists. There's no need to, as comprehend considers sequential structures interchangeble. This means functions can be called in patterns:
+Notice that round brackets `()` in patterns are not interpreted as lists, contrary to [core.match](https://github.com/clojure/core.match). There's no need to as Comprehend considers sequential structures interchangeble, and so you can simply use square brackets `[]` to do pattern matching on lists. This means functions can be called in patterns:
 
 ```clojure
 (c/comprehend (c/indexed-set [0 1] [1 2])
@@ -76,7 +76,7 @@ Notice that round brackets `()` in patterns are not interpreted as lists. There'
 ; => '(1)
 ```
 
-Creating indexes for (sub)collections is slow. It is possible to disable indexing on a (sub)collection by (sub)collection basis:
+Creating indexes for collections is slow. It is possible to disable indexing on a collection by collection basis:
 
 ```clojure
 (c/comprehend (c/indexed-set [1] ^::c/opaque [2])
@@ -86,7 +86,15 @@ Creating indexes for (sub)collections is slow. It is possible to disable indexin
 ; => '([1 [1]] [1 [2]])
 ```
 
-Equality of indexed sets respects value semantics. Indexed sets are considered equivalent iff they index identical facts. Thus, `(c/indexed-set [1])` and `(c/indexed-set ^::c/opaque [1])` are considered different. Indexed sets are never equal to native Clojure sets.
+It's also possible to make subcollections opaque. This allows you to add a map such as `{:username "jdoe", :posts small-vector, :login-history ^:opaque big-vector}` without incurring the cost of indexing `big-vector`.
+
+Indexed sets are considered equivalent (modulo `=`) iff they index identical facts. Thus, `(c/indexed-set [1])` and `(c/indexed-set ^::c/opaque [1])` are considered different. Indexed sets are never equal to native Clojure sets.
+
+## Other considerations
+
+Indexed sets currently leak memory when elements are removed. This problem can be fixed in several ways, but I simply have not gotten around to it yet.
+
+I explain some of the ideas behind Comprehend in this [blog post](http://jdevuyst.blogspot.com/2014/05/comprehend-clojure-library.html).
 
 ## License
 
