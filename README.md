@@ -4,7 +4,7 @@ A Clojure library for performing pattern matching on indexed sets.
 
 Comprehend contains a data structure for functional indexed sets and a macro `comprehend` for pattern matching on indexed sets.
 
-Indexed sets effectively serve as in-memory databases, but are just as easy to set up as native Clojure sets. The syntax for the `comprehend` macro is reminiscent of [core.match](https://github.com/clojure/core.match).
+Indexed sets effectively serve as in-memory databases, but are just as easy to set up as native Clojure sets. The syntax for the `comprehend` macro is reminiscent of the set comprehension idiom { ∀ patterns ⊆ S : expr }.
 
 Comprehend is powered by [core.logic](https://github.com/clojure/core.logic).
 
