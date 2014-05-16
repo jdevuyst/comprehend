@@ -1,4 +1,4 @@
-(defproject comprehend "0.1.0-SNAPSHOT"
+(defproject comprehend "0.1.0"
   :description "Clojure library containing a setlike data type that is optimized for the idiom { ∀ patterns ⊆ S : expr }"
   :url "https://github.com/jdevuyst/comprehend"
   :license {:name "Eclipse Public License"

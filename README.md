@@ -13,13 +13,12 @@ Comprehend is powered by [core.logic](https://github.com/clojure/core.logic).
 To start:
 
 ```clojure
-(require '[comprehend.core :as c])
+(require '[comprehend :as c])
 ```
 
 Creating indexed sets is no different than creating other collections in Clojure:
 
 ```clojure
-(indexed-set) ; empty indexed set
 (indexed-set x y z) ; indexed counterpart of #{x y z}
 ```
 
@@ -94,7 +93,7 @@ Indexed sets are considered equivalent (modulo `=`) iff they index identical fac
 
 Indexed sets currently leak memory when elements are removed. This problem can be fixed in several ways, but I simply have not gotten around to it yet.
 
-I explain some of the ideas behind Comprehend in this [blog post](http://jdevuyst.blogspot.com/2014/05/comprehend-clojure-library.html).
+I explain some of the ideas behind Comprehend in this [blog post](http://jdevuyst.blogspot.com/2014/05/comprehend-clojure-pattern-matching.html).
 
 ## License
 

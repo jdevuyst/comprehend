@@ -1,5 +1,5 @@
 (ns comprehend.benchmark
-  (:require [comprehend.core :as c]
+  (:require [comprehend :as c]
             [clojure.core.logic :as l]))
 
 (defn edge [source dest]

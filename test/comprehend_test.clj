@@ -1,9 +1,9 @@
-(ns comprehend.core-test
+(ns comprehend-test
   (:require [clojure.test :refer :all]
-            [comprehend.core :refer :all]
-            [comprehend.core :as c]))
+            [comprehend :refer :all]
+            [comprehend :as c]))
 
-(def this-ns-symb 'comprehend.core-test)
+(def this-ns-symb 'comprehend-test)
 
 (let [A (hash-set 1 2 3)
       B (apply indexed-set A)]

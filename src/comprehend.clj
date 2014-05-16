@@ -1,4 +1,4 @@
-(ns comprehend.core
+(ns comprehend
   (:require [clojure.core.logic :as l]
             [clojure.core.logic.protocols :as lp]
             [clojure.core.logic.pldb :as pldb]
