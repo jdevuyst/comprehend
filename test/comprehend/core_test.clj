@@ -3,6 +3,8 @@
             [comprehend.core :refer :all]
             [comprehend.core :as c]))
 
+(def this-ns-symb 'comprehend.core-test)
+
 (let [A (hash-set 1 2 3)
       B (apply indexed-set A)]
   (defmacro invariance-test [varname expr]
@@ -11,7 +13,7 @@
                         ~expr))
                    [A B])))))
 
-(deftest match-test
+(deftest all-tests
   (testing "IPersistentSet"
     (invariance-test S (set (seq S)))
     (invariance-test S (set S))
@@ -156,22 +158,24 @@
                          [[x] y]
                          x)
              [1])))
-    (testing "Opaqueness"
+    (testing "Opaque collections"
       (is (= (set (comprehend (indexed-set #{[1] ^::c/opaque [2]})
                               #{x}
                               x))
              #{[1] [2]}))
       (is (= (comprehend (indexed-set #{[1] ^::c/opaque [2]})
-                              #{[x]}
-                              x)
+                         #{[x]}
+                         x)
              [1]))
       (testing "Automatic hinting of opaqueness in patterns"
-       (is (= (comprehend (indexed-set ^::c/opaque [1 [2]])
-                              [1 [2]]
-                              true)
-             [true])))))
+        (is (= (comprehend (indexed-set ^::c/opaque [1 [2]])
+                           [1 [2]]
+                           true)
+               [true])))))
   (testing "Other"
     (is (indexed-set? (indexed-set 1 2)))
     (is (not (indexed-set? (hash-set 1 2))))))
 
-(run-tests)
+(defn test-comprehend []
+  (require [this-ns-symb] :reload-all)
+  (run-tests this-ns-symb))
