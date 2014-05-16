@@ -22,6 +22,7 @@
     (let [a (gensym)] (invariance-test S (set (conj S a))))
     (invariance-test S (set (conj S (first S))))
     (is (= (empty (indexed-set 1 2 3)) (indexed-set)))
+    (is (not= (c/indexed-set [1]) (c/indexed-set ^::c/opaque [1])))
     (let [a (gensym)] (invariance-test S (set (disj (conj S a) a))))
     (invariance-test S (set (disj S (gensym))))
     (invariance-test S (contains? S (first S)))
