@@ -1,6 +1,7 @@
 (ns comprehend.core-test
   (:require [clojure.test :refer :all]
-            [comprehend.core :refer :all]))
+            [comprehend.core :refer :all]
+            [comprehend.core :as c]))
 
 (let [A (hash-set 1 2 3)
       B (apply indexed-set A)]
@@ -156,11 +157,11 @@
                          x)
              [1])))
     (testing "Opacity"
-      (is (= (set (comprehend (indexed-set #{[1] ^:opaque [2]})
+      (is (= (set (comprehend (indexed-set #{[1] ^::c/opaque [2]})
                               #{x}
                               x))
              #{[1] [2]}))
-      (is (= (comprehend (indexed-set #{[1] ^:opaque [2]})
+      (is (= (comprehend (indexed-set #{[1] ^::c/opaque [2]})
                               #{[x]}
                               x)
              [1]))))

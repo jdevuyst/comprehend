@@ -3,25 +3,7 @@
             [clojure.core.logic.protocols :as lp]
             [clojure.core.logic.pldb :as pldb]))
 
-(declare indexed-set? conj* indexed-set disj* count* seq* contains?* get* equiv?*)
-
-(deftype Set [m idx]
-  clojure.lang.IHashEq
-  (hasheq [this] (-> this .-idx hash))
-  clojure.lang.IPersistentSet
-  (seq [this] (seq* this))
-  (count [this] (count* this))
-  (cons [this o] (conj* this o))
-  (empty [this] (indexed-set))
-  (equiv [this o] (or (identical? this o)
-                      (and (indexed-set? o)
-                           (.equiv (.-idx this) (.-idx o)))))
-  (disjoin [this k] (disj* this k))
-  (contains [this k] (contains?* this k))
-  (get [this k] (get* this k)))
-
-(defn indexed-set? [x]
-  (= Set (type x)))
+(declare indexed-set? conj* indexed-set disj*)
 
 (pldb/db-rel toplevel-pred ^:index v)
 (pldb/db-rel set-element-rel ^:index s ^:index v)
@@ -29,15 +11,38 @@
 (pldb/db-rel map-element-rel ^:index m ^:index k ^:index v)
 (pldb/db-rel list-count-rel ^:index l ^:index c)
 
+(defn- roots [s]
+  (-> toplevel-pred pldb/rel-key ((.-idx s)) ::pldb/unindexed))
+
+(deftype Set [m idx]
+  clojure.lang.IHashEq
+  (hasheq [this] (-> this .-idx hash))
+  clojure.lang.Counted
+  (count [this] (count (roots this)))
+  clojure.lang.IPersistentSet
+  (seq [this] (map (comp (.-m this) first) (roots this)))
+  (cons [this o] (conj* this o))
+  (empty [this] (indexed-set))
+  (equiv [this o] (or (identical? this o)
+                      (and (indexed-set? o)
+                           (.equiv (.-idx this) (.-idx o)))))
+  (disjoin [this k] (disj* this k))
+  (contains [this k] (-> this roots (contains? (-> k hash list))))
+  (get [this k] (if (contains? this k)
+                  ((.-m this) (hash k)))))
+
+(defn indexed-set? [x]
+  (= Set (type x)))
+
 (letfn [(bound? [env x]
                 (or (contains? env x)
                     (resolve x)))
-        (runtime-sequential? [x]
-                             (and (sequential? x)
-                                  (not= [(first x) (symbol? (second x)) (count x)]
-                                        ['quote true 2])))
+        (qsymb? [x] (and (sequential? x)
+                         (= 2 (count x))
+                         (= (first x) 'quote)
+                         (symbol? (second x))))
         (squach [x]
-                (cond (or (set? x) (runtime-sequential? x)) (mapcat squach x)
+                (cond (and (coll? x) (not (qsymb? x))) (mapcat squach x)
                       (map? x) (->> x
                                     ((juxt keys vals))
                                     concat
@@ -53,7 +58,7 @@
   "Describe is a public function for technical reasons. Do not use directly."
   [ren make-rel x]
   (letfn [(f [x]
-             (cond (-> x meta :opaque)
+             (cond (-> x meta ::opaque)
                    nil
 
                    (sequential? x)
@@ -125,15 +130,3 @@
                                      (reduce lp/bind a#))))
                             (l/== bogus-var# nil))))]
          ~expr))))
-
-(defn- count* [s]
-  (count (seq s))) ; TO DO: make more efficient!
-
-(defn- seq* [s]
-  (comprehend s x x))
-
-(defn- contains?* [s k]
-  (-> (comprehend s k k) empty? not))
-
-(defn- get* [s k]
-  (first (comprehend s k k)))
