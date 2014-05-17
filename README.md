@@ -91,7 +91,19 @@ Creating indexes for collections is slow. It is possible to disable indexing on 
 ; => '([1 [1]] [1 [2]])
 ```
 
-It's also possible to make subcollections opaque. By way of example, this allows you to add `{:username "jdoe", :posts small-vector, :login-history ^::c/opaque big-vector}` to an indexed set without incurring the cost of indexing `big-vector`.
+Think of `::c/opaque x` as saying that you will not attempt pattern matching on the contents of `x`. In fact, such matching might succeed under certain conditions:
+
+```clojure
+(c/comprehend (c/indexed-set [^::c/opaque [1]])
+              [[x]]
+              x)
+; => '()
+
+(c/comprehend (c/indexed-set [1] [^::c/opaque [1]])
+              [[x]]
+              x)
+; => '(1)
+```
 
 Indexed sets are considered equivalent (modulo `=`) iff they index identical facts. Thus, `(c/indexed-set [1])` and `(c/indexed-set ^::c/opaque [1])` are considered different. Indexed sets are never equal to native Clojure sets.
 
