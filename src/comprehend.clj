@@ -117,18 +117,19 @@
                                  (hash o))
                                vector)
                      set)
-        pinned-facts (->> (pldb/with-db (.-idx s)
-                                        (l/run* [x y]
-                                                (l/membero y (seq @!subterms))
-                                                (l/conde [(roots-rel y) (l/== x y)]
-                                                         [(l/fresh [tmp]
-                                                                   (l/conde [(set-element-rel x y)]
-                                                                            [(list-element-rel x tmp y)]
-                                                                            [(map-element-rel x tmp y)]
-                                                                            [(map-element-rel x y tmp)]))])))
+        pinned-facts (->> (pldb/with-db
+                            (.-idx s)
+                            (l/run* [x y]
+                                    (l/membero y (seq @!subterms))
+                                    (l/conde [(roots-rel y) (l/== x y)]
+                                             [(l/fresh [tmp]
+                                                       (l/conde [(set-element-rel x y)]
+                                                                [(list-element-rel x tmp y)]
+                                                                [(map-element-rel x tmp y)]
+                                                                [(map-element-rel x y tmp)]))])))
                           set
                           (filter (fn [[l r]]
-                                    (or (not (contains? @!subterms l))
+                                    (or (not (@!subterms l))
                                         (and (= l r) (not= l (hash o))))))
                           (map second)
                           (map (partial (.-m s)))
@@ -143,7 +144,7 @@
                   (.-idx s)
                   (reduce disj o-facts pinned-facts)))))
 
-(defn- mark-ungrounded-terms [var? p]
+(defn- annotate-ungrounded-terms [var? p]
   (w/postwalk (fn [x]
                 (if (coll? x)
                   (with-meta x
@@ -160,25 +161,24 @@
   (let [patterns (butlast rdecl)
         expr (last rdecl)
         explicit-vars (->> patterns (unbound-symbols &env) set)
-        patterns (map (partial mark-ungrounded-terms explicit-vars) patterns)]
+        patterns (map (partial annotate-ungrounded-terms explicit-vars) patterns)]
     `(let [s# ~s
            lookup# #(map (partial (.-m s#)) %)]
        (for [[~@explicit-vars]
              (map lookup#
-                  (pldb/with-db
-                    (.-idx s#)
-                    ; bogus var required when explicit-vars is empty
-                    ; TO DO: should get rid of run* instead
-                    (l/run* [~@explicit-vars bogus-var#]
-                            (let [ren# (memoize #(cond (~explicit-vars %) %
-                                                       (and (coll? %)
-                                                            (-> % meta ::opaque not)) (l/lvar)
-                                                       :else (hash %)))
-                                  make-goal# (fn [f# & args#]
-                                               (apply f# args#))]
-                              (fn [a#]
-                                (->> [~@patterns]
-                                     (mapcat (partial describe ren# make-goal#))
-                                     (reduce lp/bind a#))))
-                            (l/== bogus-var# nil))))]
+                  (pldb/with-db (.-idx s#)
+                                ; bogus var required when explicit-vars is empty
+                                ; TO DO: should get rid of run* instead
+                                (l/run* [~@explicit-vars bogus-var#]
+                                        (let [ren# (memoize #(cond (~explicit-vars %) %
+                                                                   (and (coll? %)
+                                                                        (-> % meta ::opaque not)) (l/lvar)
+                                                                   :else (hash %)))
+                                              make-goal# (fn [f# & args#]
+                                                           (apply f# args#))]
+                                          (fn [a#]
+                                            (->> [~@patterns]
+                                                 (mapcat (partial describe ren# make-goal#))
+                                                 (reduce lp/bind a#))))
+                                        (l/== bogus-var# nil))))]
          ~expr))))

@@ -1,9 +1,8 @@
 (ns comprehend-test
   (:require [clojure.test :refer :all]
             [comprehend :refer :all]
-            [comprehend :as c]))
-
-(def this-ns-symb 'comprehend-test)
+            [comprehend :as c]
+            [clojure.walk :as w]))
 
 (let [A (hash-set 1 2 3)
       B (apply indexed-set A)]
@@ -179,16 +178,18 @@
                              [2]
                              true)
                [true])))))
-  (testing "Strong equality"
-    (let [S (indexed-set [2 [[[#{:a}]]]] [1 [2 "test" {[[#{:a}]] [:b]}] 3] 4)
+  (testing "Strong equality and index integrity"
+    (let [S (indexed-set [[:test] [[[#{:a}]]]]
+                         [1 [2 "test" {[[#{:a}]] [:b]}] 3]
+                         [:test]
+                         4)
           a [[[[[2 [[[#{:a}]]]]]]3] (gensym)]
-          b [2 [[[#{:a}]]]]
-          norm (partial clojure.walk/postwalk #(if (map? %)
-                                                 (do ;(println :MAP %)
-                                                   (->> %
-                                                        (filter (comp (complement empty?) second))
-                                                        (into {})))
-                                                 %))
+          b [[:test] [[[#{:a}]]]]
+          norm (partial w/postwalk #(if (map? %)
+                                      (->> %
+                                           (filter (comp not empty? second))
+                                           (into {}))
+                                      %))
           strong= #(and (= (.-m %1) (.-m %2))
                         (= (norm (.-idx %1)) (norm (.-idx %2))))]
       (is (not (strong= S (conj S a))))
@@ -198,11 +199,64 @@
       (is (strong= S (disj (conj S a) a)))
       (is (strong= S (conj S b)))
       (is (strong= (conj S b) (-> S (conj b) (disj b) (conj b))))
-      (is (strong= S (conj (disj S b) b)))))
+      (is (strong= S (conj (disj S b) b)))
+      (is (= (comprehend (disj S b)
+                         [1 [2 "test" {[[#{:a}]] [x]}] 3]
+                         x)
+             [:b]))
+      (is (= (comprehend (disj S b)
+                         [:test]
+                         true)
+             [true]))))
   (testing "Other"
     (is (indexed-set? (indexed-set 1 2)))
     (is (not (indexed-set? (hash-set 1 2))))))
 
-(defn test-comprehend []
-  (require [this-ns-symb] :reload-all)
-  (run-tests this-ns-symb))
+(deftest README-examples
+  (is (= (set (c/indexed-set 1 2 3))
+         (hash-set 1 2 3)))
+  (let [s (c/indexed-set [:person 1] [:person 2] [:person 3]
+                         [:parent-of 1 2] [:parent-of 2 3] [:parent-of 3 4])]
+    (is (= (set (c/comprehend s
+                              [:parent-of a b]
+                              [:parent-of b c]
+                              [:grandparent-of a c]))
+           #{[:grandparent-of 1 3] [:grandparent-of 2 4]})))
+  (is (= (c/comprehend (c/indexed-set [[1 2]] [[2 3]] [[1 2 3]])
+                       [[1 x]]
+                       x)
+         '(2)))
+  (is (= (set (c/comprehend (c/indexed-set {1 2 3 4})
+                            {x y}
+                            [x y]))
+         #{[1 2] [3 4]}))
+  (let [bound-symb 1]
+    (is (= (c/comprehend (c/indexed-set [1 2] [3 4])
+                         [bound-symb unbound-symb]
+                         [bound-symb unbound-symb])
+           '([1 2]))))
+  (is (= (c/comprehend (c/indexed-set [0 1] [1 2])
+                       [(dec 1) x]
+                       x)
+         '(1)))
+  (is (= (set (c/comprehend (c/indexed-set [1] ^::c/opaque [2])
+                            [x]
+                            y
+                            [x y]))
+         #{[1 [1]] [1 [2]]}))
+  (is (= (c/comprehend (c/indexed-set [^::c/opaque [1]])
+                       [[x]]
+                       x)
+         '()))
+  (is (= (c/comprehend (c/indexed-set [1] [^::c/opaque [1]])
+                       [[x]]
+                       x)
+         '(1)))
+  (is (not= (c/indexed-set [1])
+            (c/indexed-set ^::c/opaque [1])))
+  (is (not= (c/indexed-set 1) #{1})))
+
+(let [this-ns-name (ns-name *ns*)]
+  (defn test-comprehend []
+    (require [this-ns-name] :reload-all)
+    (run-tests this-ns-name)))

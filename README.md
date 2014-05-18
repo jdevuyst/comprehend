@@ -28,7 +28,7 @@ Creating indexed sets is no different than creating other collections in Clojure
 (c/indexed-set 1 2 3) ; indexed counterpart of #{1 2 3}
 ```
 
-The functions `cons`, `conj`, `disj`, `contains?`, `get`, `count`, `hash`, `empty`, and `seq` operate on indexed sets as expected. Moreover, `(get s k)` = `(s k)` if `s` is an indexed set, and if `k` is a symbol or keyword then these are also equivalent to `(k s)`.
+The functions `cons`, `conj`, `disj`, `contains?`, `get`, `count`, `hash`, `empty`, and `seq` operate on indexed sets as expected. Moreover, `(s k)` = `(get s k)` if `s` is an indexed set, and if `k` is a symbol or keyword then `(k s)` = `(get s k)`.
 
 Indexed sets shine when you want to perform pattern matching on them:
 
@@ -39,7 +39,7 @@ Indexed sets shine when you want to perform pattern matching on them:
               [:parent-of a b]
               [:parent-of b c]
               [:grandparent-of a c])
-; => '([:grandparent-of 1 3] [:grandparent-of 2 4])
+;=> ([:grandparent-of 1 3] [:grandparent-of 2 4])
 ```
 
 In the above example we match the patterns `[:parent-of a b]` and `[:parent-of b c]` on the indexed set `s`. For every match we yield the pattern `[:grantparent-of a c]`.
@@ -50,7 +50,7 @@ It is also possible to match on patterns in subcollections:
 (c/comprehend (c/indexed-set [[1 2]] [[2 3]] [[1 2 3]])
               [[1 x]]
               x)
-; => '(2)
+;=> (2)
 ```
 
 Like [core.match](https://github.com/clojure/core.match), vector patterns will match only vectors of the same member count but map patterns will also match supermaps:
@@ -59,7 +59,7 @@ Like [core.match](https://github.com/clojure/core.match), vector patterns will m
 (c/comprehend (c/indexed-set {1 2 3 4})
               {x y}
               [x y])
-; => '([1 2] [3 4])
+;=> ([1 2] [3 4])
 ```
 
 Similar to [core.match](https://github.com/clojure/core.match), unbound symbols are interpreted as logical variables:
@@ -69,7 +69,7 @@ Similar to [core.match](https://github.com/clojure/core.match), unbound symbols 
 (c/comprehend (c/indexed-set [1 2] [3 4])
               [bound-symb unbound-symb]
               [bound-symb unbound-symb])
-; => '([1 2])
+;=> ([1 2])
 ```
 
 Notice that round brackets `()` in patterns are not interpreted as lists, contrary to [core.match](https://github.com/clojure/core.match). There's no need to as Comprehend considers sequential structures interchangeble, and so you can simply use square brackets `[]` to do pattern matching on lists. This has the advantage that functions can be called from within patterns:
@@ -78,7 +78,7 @@ Notice that round brackets `()` in patterns are not interpreted as lists, contra
 (c/comprehend (c/indexed-set [0 1] [1 2])
               [(dec 1) x]
               x)
-; => '(1)
+;=> (1)
 ```
 
 Creating indexes for collections is slow. It is possible to disable indexing on a collection by collection basis:
@@ -88,28 +88,35 @@ Creating indexes for collections is slow. It is possible to disable indexing on 
               [x]
               y
               [x y])
-; => '([1 [1]] [1 [2]])
+;=> ([1 [1]] [1 [2]])
 ```
 
-`::c/opaque` annotations may also be useful when storing cyclical structures.
-
-Think of `::c/opaque x` as saying that you will not attempt pattern matching on the contents of `x`. In fact, such matching might succeed under certain conditions:
+Think of `^::c/opaque x` as saying that you will not attempt pattern matching on the contents of `x`. In fact, such matching might succeed under certain conditions:
 
 ```clojure
 (c/comprehend (c/indexed-set [^::c/opaque [1]])
               [[x]]
               x)
-; => '()
+;=> ()
 
 (c/comprehend (c/indexed-set [1] [^::c/opaque [1]])
               [[x]]
               x)
-; => '(1)
+;=> (1)
 ```
 
-Indexed sets are considered equivalent (modulo `=`) iff they index identical information. Thus, `(c/indexed-set [1])` and `(c/indexed-set ^::c/opaque [1])` are considered different. Indexed sets are never considered equivalent to native Clojure sets.
+Sets are considered equivalent (modulo `=`) iff they index identical information.
+
+```clojure
+(assert (not= (c/indexed-set [1])
+              (c/indexed-set ^::c/opaque [1])))
+
+(assert (not= (c/indexed-set 1) #{1}))
+```
 
 ## Other considerations
+
+Comprehend assumes that the structures you store are not cyclical at the `IPersistentCollection` level. If you really do wish to store such structures, try using `^::c/opaque` annotations.
 
 I explain some of the ideas behind Comprehend in this [blog post](http://jdevuyst.blogspot.com/2014/05/comprehend-clojure-pattern-matching.html).
 
