@@ -100,7 +100,7 @@
         ren (fn [o]
               (swap! !m assoc! (hash o) o)
               (hash o))
-        facts (describe ren vector o)]
+        facts (doall (describe ren vector o))]
     (Set. (persistent! @!m)
           (apply pldb/db-facts (.-idx s) facts))))
 
@@ -109,11 +109,41 @@
   ([o] (conj* (indexed-set) o))
   ([o & os] (reduce conj* (indexed-set o) os)))
 
-(defn- disj* [s o] ; TO DO: disj* is currently leaky!
-  (Set. (.-m s)
-        (pldb/db-retraction (.-idx s) roots-rel (hash o))))
+(defn- disj* [s o]
+  (let [!subterms (atom #{})
+        o-facts (->> o
+                     (describe (fn [o]
+                                 (swap! !subterms conj (hash o))
+                                 (hash o))
+                               vector)
+                     set)
+        pinned-facts (->> (pldb/with-db (.-idx s)
+                                        (l/run* [x y]
+                                                (l/membero y (seq @!subterms))
+                                                (l/conde [(roots-rel y) (l/== x y)]
+                                                         [(l/fresh [tmp]
+                                                                   (l/conde [(set-element-rel x y)]
+                                                                            [(list-element-rel x tmp y)]
+                                                                            [(map-element-rel x tmp y)]
+                                                                            [(map-element-rel x y tmp)]))])))
+                          set
+                          (filter (fn [[l r]]
+                                    (or (not (contains? @!subterms l))
+                                        (and (= l r) (not= l (hash o))))))
+                          (map second)
+                          (map (partial (.-m s)))
+                          (mapcat (partial describe
+                                           (fn [o]
+                                             (swap! !subterms disj (hash o))
+                                             (hash o))
+                                           vector))
+                          doall)]
+    (Set. (reduce dissoc (.-m s) @!subterms)
+          (reduce (partial apply pldb/db-retraction)
+                  (.-idx s)
+                  (reduce disj o-facts pinned-facts)))))
 
-(defn- opaque-hint [var? p]
+(defn- mark-ungrounded-terms [var? p]
   (w/postwalk (fn [x]
                 (if (coll? x)
                   (with-meta x
@@ -130,7 +160,7 @@
   (let [patterns (butlast rdecl)
         expr (last rdecl)
         explicit-vars (->> patterns (unbound-symbols &env) set)
-        patterns (map (partial opaque-hint explicit-vars) patterns)]
+        patterns (map (partial mark-ungrounded-terms explicit-vars) patterns)]
     `(let [s# ~s
            lookup# #(map (partial (.-m s#)) %)]
        (for [[~@explicit-vars]

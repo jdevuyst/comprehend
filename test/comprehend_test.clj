@@ -41,15 +41,6 @@
     (let [a (gensym)] (invariance-test S (a (conj S a))))
     (invariance-test S ((gensym) S))
     (invariance-test S (.toString S)))
-  (testing "Strong equality"
-    (let [S (indexed-set 1 2 3)
-          a (gensym)
-          strong= #(and (= (.-m %1) (.-m %2))
-                        (= (.-idx %1) (.-idx %2)))]
-      (is (strong= (conj S a) (-> S (conj a) (disj a) (conj a))))
-      ; (is (strong= S (conj S (first S) (disj S a))))
-      ; (is (strong= S (disj (conj S a))))
-      ))
   (testing "Comprehension"
     (testing "Sets != lists != maps"
       (is (not= (comprehend (indexed-set #{1})
@@ -188,6 +179,26 @@
                              [2]
                              true)
                [true])))))
+  (testing "Strong equality"
+    (let [S (indexed-set [2 [[[#{:a}]]]] [1 [2 "test" {[[#{:a}]] [:b]}] 3] 4)
+          a [[[[[2 [[[#{:a}]]]]]]3] (gensym)]
+          b [2 [[[#{:a}]]]]
+          norm (partial clojure.walk/postwalk #(if (map? %)
+                                                 (do ;(println :MAP %)
+                                                   (->> %
+                                                        (filter (comp (complement empty?) second))
+                                                        (into {})))
+                                                 %))
+          strong= #(and (= (.-m %1) (.-m %2))
+                        (= (norm (.-idx %1)) (norm (.-idx %2))))]
+      (is (not (strong= S (conj S a))))
+      (is (strong= S (disj S a)))
+      (is (strong= (conj S a) (-> S (conj a) (disj a) (conj a))))
+      (is (strong= S (conj (disj S a) (first S))))
+      (is (strong= S (disj (conj S a) a)))
+      (is (strong= S (conj S b)))
+      (is (strong= (conj S b) (-> S (conj b) (disj b) (conj b))))
+      (is (strong= S (conj (disj S b) b)))))
   (testing "Other"
     (is (indexed-set? (indexed-set 1 2)))
     (is (not (indexed-set? (hash-set 1 2))))))

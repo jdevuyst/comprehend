@@ -13,7 +13,7 @@ Comprehend is powered by [core.logic](https://github.com/clojure/core.logic).
 To start, create a [Leiningen](http://leiningen.org) project and add the following dependency to `project.clj`:
 
 ```clojure
-[comprehend "0.1.0"]
+[comprehend "0.2.0"]
 ```
 
 Next, load Comprehend as follows:
@@ -91,6 +91,8 @@ Creating indexes for collections is slow. It is possible to disable indexing on 
 ; => '([1 [1]] [1 [2]])
 ```
 
+`::c/opaque` annotations may also be useful when storing cyclical structures.
+
 Think of `::c/opaque x` as saying that you will not attempt pattern matching on the contents of `x`. In fact, such matching might succeed under certain conditions:
 
 ```clojure
@@ -105,11 +107,9 @@ Think of `::c/opaque x` as saying that you will not attempt pattern matching on 
 ; => '(1)
 ```
 
-Indexed sets are considered equivalent (modulo `=`) iff they index identical facts. Thus, `(c/indexed-set [1])` and `(c/indexed-set ^::c/opaque [1])` are considered different. Indexed sets are never equal to native Clojure sets.
+Indexed sets are considered equivalent (modulo `=`) iff they index identical information. Thus, `(c/indexed-set [1])` and `(c/indexed-set ^::c/opaque [1])` are considered different. Indexed sets are never considered equivalent to native Clojure sets.
 
 ## Other considerations
-
-Indexed sets currently leak memory when elements are removed. This problem can be fixed in several ways, but I simply have not gotten around to it yet.
 
 I explain some of the ideas behind Comprehend in this [blog post](http://jdevuyst.blogspot.com/2014/05/comprehend-clojure-pattern-matching.html).
 
