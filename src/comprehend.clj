@@ -29,7 +29,7 @@
                       (and (indexed-set? o)
                            (.equiv (.-idx this) (.-idx o)))))
   (disjoin [this k] (disj* this k))
-  (contains [this k] (-> this roots (.contains (-> k hash list))))
+  (contains [this k] (-> this roots (contains? (-> k hash list))))
   (get [this k] (if (.contains this k)
                   ((.-m this) (hash k))))
   clojure.lang.IFn
@@ -99,14 +99,16 @@
           (f x))))
 
 (defn- conj* [s o]
-  (let [!m (atom (transient (.-m s)))
-        ren (fn [o]
-              (swap! !m assoc! (hash o) o)
-              (hash o))
-        facts (doall (describe ren vector o))]
-    (Set. (persistent! @!m)
-          (apply pldb/db-facts (.-idx s) facts)
-          (.-meta s))))
+  (if (contains? s o)
+    s
+    (let [!m (atom (transient (.-m s)))
+          ren (fn [o]
+                (swap! !m assoc! (hash o) o)
+                (hash o))
+          facts (doall (describe ren vector o))]
+      (Set. (persistent! @!m)
+            (apply pldb/db-facts (.-idx s) facts)
+            (update-in (meta s) [::log] conj {:conj o})))))
 
 (defn indexed-set
   ([] (Set. {} pldb/empty-db {}))
@@ -114,40 +116,42 @@
   ([o & os] (reduce conj* (indexed-set o) os)))
 
 (defn- disj* [s o]
-  (let [!subterms (atom #{})
-        o-facts (->> o
-                     (describe (fn [o]
-                                 (swap! !subterms conj (hash o))
-                                 (hash o))
-                               vector)
-                     set)
-        pinned-facts (->> (pldb/with-db
-                            (.-idx s)
-                            (l/run* [x y]
-                                    (l/membero y (seq @!subterms))
-                                    (l/conde [(roots-rel y) (l/== x y)]
-                                             [(l/fresh [tmp]
-                                                       (l/conde [(set-element-rel x y)]
-                                                                [(list-element-rel x tmp y)]
-                                                                [(map-element-rel x tmp y)]
-                                                                [(map-element-rel x y tmp)]))])))
-                          set
-                          (filter (fn [[l r]]
-                                    (or (not (@!subterms l))
-                                        (and (= l r) (not= l (hash o))))))
-                          (map second)
-                          (map (partial (.-m s)))
-                          (mapcat (partial describe
-                                           (fn [o]
-                                             (swap! !subterms disj (hash o))
-                                             (hash o))
-                                           vector))
-                          doall)]
-    (Set. (reduce dissoc (.-m s) @!subterms)
-          (reduce (partial apply pldb/db-retraction)
-                  (.-idx s)
-                  (reduce disj o-facts pinned-facts))
-          (.-meta s))))
+  (if-not (contains? s o)
+    s
+    (let [!subterms (atom #{})
+          o-facts (->> o
+                       (describe (fn [o]
+                                   (swap! !subterms conj (hash o))
+                                   (hash o))
+                                 vector)
+                       set)
+          pinned-facts (->> (pldb/with-db
+                              (.-idx s)
+                              (l/run* [x y]
+                                      (l/membero y (seq @!subterms))
+                                      (l/conde [(roots-rel y) (l/== x y)]
+                                               [(l/fresh [tmp]
+                                                         (l/conde [(set-element-rel x y)]
+                                                                  [(list-element-rel x tmp y)]
+                                                                  [(map-element-rel x tmp y)]
+                                                                  [(map-element-rel x y tmp)]))])))
+                            set
+                            (filter (fn [[l r]]
+                                      (or (not (@!subterms l))
+                                          (and (= l r) (not= l (hash o))))))
+                            (map second)
+                            (map (partial (.-m s)))
+                            (mapcat (partial describe
+                                             (fn [o]
+                                               (swap! !subterms disj (hash o))
+                                               (hash o))
+                                             vector))
+                            doall)]
+      (Set. (reduce dissoc (.-m s) @!subterms)
+            (reduce (partial apply pldb/db-retraction)
+                    (.-idx s)
+                    (reduce disj o-facts pinned-facts))
+            (update-in (meta s) [::log] conj {:disj o})))))
 
 (defn- annotate-ungrounded-terms [var? p]
   (w/postwalk (fn [x]
@@ -190,6 +194,5 @@
               ~expr)
             (filter (comp not (partial = ::skip)))))))
 
-(defmacro catch-up [s & rdecl]
-  (assert (>= (count rdecl) 2) "syntax: (catch-up s comprehend-block+)")
-  )
+(defn mark [s & markers]
+  (vary-meta s update-in [::log] into markers))

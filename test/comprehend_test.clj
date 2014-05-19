@@ -4,6 +4,14 @@
             [comprehend :as c]
             [clojure.walk :as w]))
 
+; TO DO: not sure if this should be included
+(defn trim [s & markers]
+  (letfn [(f [coll rem]
+             (if (or (empty? coll) (empty? rem))
+               coll
+               (recur (rest coll) (disj rem (first coll)))))]
+    (vary-meta s update-in [::c/log] f (set markers))))
+
 (let [A (hash-set 1 2 3)
       B (apply indexed-set A)]
   (defmacro invariance-test [varname expr]
@@ -33,6 +41,7 @@
     (invariance-test S (set (disj S (gensym))))
     (invariance-test S (contains? S (first S)))
     (invariance-test S (contains? S (gensym)))
+    (is (not (contains? (c/indexed-set) (gensym))))
     (let [a (gensym)] (invariance-test S (get (conj S a) a)))
     (invariance-test S (get S (gensym)))
     (let [a (gensym)] (invariance-test S ((conj S a) a)))
@@ -194,6 +203,7 @@
                         (= (norm (.-idx %1)) (norm (.-idx %2))))]
       (is (not (strong= S (conj S a))))
       (is (strong= S (disj S a)))
+      (is (strong= (conj S a) (conj (conj S a) a)))
       (is (strong= (conj S a) (-> S (conj a) (disj a) (conj a))))
       (is (strong= S (conj (disj S a) (first S))))
       (is (strong= S (disj (conj S a) a)))
@@ -208,12 +218,27 @@
                          [:test]
                          true)
              [true]))))
-  (testing "Preservation of metadata"
+  (testing "Metadata"
     (let [m {:a :b :c :d}
           s (with-meta (indexed-set 1 2) m)]
-      (= (meta s) (meta (conj s (gensym))))
-      (= (meta s) (meta (disj s (gensym))))
-      (= (meta s) (meta (disj s (first s))))))
+      (is (= (dissoc (meta s) ::c/log)
+             (dissoc (meta (conj s (gensym))) ::c/log)))
+      (is (= (dissoc (meta s) ::c/log)
+             (dissoc (meta (disj s (gensym))) ::c/log)))
+      (is (= (dissoc (meta s) ::c/log)
+             (dissoc (meta (disj s (first s))) ::c/log)))
+      (is (= (-> (c/indexed-set 1 2 3) (c/mark :a :b) (disj 3) (conj 4) (disj 3) (conj 4) meta ::c/log)
+             '({:conj 4} {:disj 3} :b :a {:conj 3} {:conj 2} {:conj 1})))
+      (is (= (-> (reduce c/mark (c/indexed-set) [1 2 3 4 5 6 7 8])
+                 (trim 7 5)
+                 meta
+                 ::c/log)
+             [4 3 2 1]))
+      (is (= (-> (reduce c/mark (c/indexed-set) [1 2 3 4 5 6 7 8])
+                 (trim 7 5 1000)
+                 meta
+                 ::c/log)
+             []))))
   (testing "Other"
     (is (indexed-set? (indexed-set 1 2)))
     (is (not (indexed-set? (hash-set 1 2))))))
