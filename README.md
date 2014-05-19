@@ -11,7 +11,7 @@ Indexed sets effectively serve as in-memory databases, but are just as easy to s
 To start, create a [Leiningen](http://leiningen.org) project and add the following dependency to `project.clj`:
 
 ```clojure
-[comprehend "0.2.0"]
+[comprehend "0.2.1"]
 ```
 
 Next, load Comprehend as follows:
