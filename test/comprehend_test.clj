@@ -208,6 +208,12 @@
                          [:test]
                          true)
              [true]))))
+  (testing "Preservation of metadata"
+    (let [m {:a :b :c :d}
+          s (with-meta (indexed-set 1 2) m)]
+      (= (meta s) (meta (conj s (gensym))))
+      (= (meta s) (meta (disj s (gensym))))
+      (= (meta s) (meta (disj s (first s))))))
   (testing "Other"
     (is (indexed-set? (indexed-set 1 2)))
     (is (not (indexed-set? (hash-set 1 2))))))

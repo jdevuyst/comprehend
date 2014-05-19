@@ -16,7 +16,7 @@
 (defn- roots [s]
   (-> roots-rel pldb/rel-key ((.-idx s)) ::pldb/unindexed))
 
-(deftype Set [m idx]
+(deftype Set [m idx meta]
   clojure.lang.IHashEq
   (hasheq [this] (-> this .-idx hash))
   clojure.lang.Counted
@@ -36,6 +36,9 @@
   (invoke [this k] (.get this k))
   clojure.lang.ILookup
   (valAt [this k] (.get this k))
+  clojure.lang.IObj
+  (withMeta [this mdata] (Set. (.-m this) (.-idx this) mdata))
+  (meta [this] (.-meta this))
   Object
   (toString [this] (-> this set .toString))
   (equals [this o] (.equiv this o))
@@ -102,10 +105,11 @@
               (hash o))
         facts (doall (describe ren vector o))]
     (Set. (persistent! @!m)
-          (apply pldb/db-facts (.-idx s) facts))))
+          (apply pldb/db-facts (.-idx s) facts)
+          (.-meta s))))
 
 (defn indexed-set
-  ([] (Set. {} pldb/empty-db))
+  ([] (Set. {} pldb/empty-db {}))
   ([o] (conj* (indexed-set) o))
   ([o & os] (reduce conj* (indexed-set o) os)))
 
@@ -142,7 +146,8 @@
     (Set. (reduce dissoc (.-m s) @!subterms)
           (reduce (partial apply pldb/db-retraction)
                   (.-idx s)
-                  (reduce disj o-facts pinned-facts)))))
+                  (reduce disj o-facts pinned-facts))
+          (.-meta s))))
 
 (defn- annotate-ungrounded-terms [var? p]
   (w/postwalk (fn [x]
