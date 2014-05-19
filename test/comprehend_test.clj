@@ -239,6 +239,12 @@
                        [(dec 1) x]
                        x)
          '(1)))
+  (is (= (set (comprehend (indexed-set 1 2 3 4)
+                          x
+                          (if (even? x)
+                            x
+                            ::c/skip)))
+         #{2 4}))
   (is (= (set (c/comprehend (c/indexed-set [1] ^::c/opaque [2])
                             [x]
                             y

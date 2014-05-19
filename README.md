@@ -2,11 +2,9 @@
 
 A Clojure library for performing pattern matching on indexed sets.
 
-Comprehend contains a data structure for functional indexed sets and a macro `comprehend` for pattern matching on indexed sets.
+Comprehend contains a data structure for persistent indexed sets and a macro `comprehend` for pattern matching on indexed sets.
 
 Indexed sets effectively serve as in-memory databases, but are just as easy to set up as native Clojure sets. The syntax for the `comprehend` macro is reminiscent of the set comprehension idiom { ∀ patterns ⊆ S : expr }.
-
-Comprehend is powered by [core.logic](https://github.com/clojure/core.logic).
 
 ## Usage
 
@@ -81,6 +79,17 @@ Notice that round brackets `()` in patterns are not interpreted as lists, contra
 ;=> (1)
 ```
 
+An expression may return `::c/skip` to filter results:
+
+```clojure
+(comprehend (indexed-set 1 2 3 4)
+            x
+            (if (even? x)
+                 x
+                 ::c/skip))
+;=> (2 4)
+```
+
 Creating indexes for collections is slow. It is possible to disable indexing on a collection by collection basis:
 
 ```clojure
@@ -91,7 +100,7 @@ Creating indexes for collections is slow. It is possible to disable indexing on 
 ;=> ([1 [1]] [1 [2]])
 ```
 
-Think of `^::c/opaque x` as saying that you will not attempt pattern matching on the contents of `x`. In fact, such matching might succeed under certain conditions:
+Think of `^::c/opaque x` as saying that you will not attempt pattern matching on the contents of `x`. Beware that such matching might in fact succeed under certain conditions:
 
 ```clojure
 (c/comprehend (c/indexed-set [^::c/opaque [1]])
@@ -105,7 +114,7 @@ Think of `^::c/opaque x` as saying that you will not attempt pattern matching on
 ;=> (1)
 ```
 
-Sets are considered equivalent (modulo `=`) iff they index identical information.
+Sets are considered equivalent by `=` iff they index the same information.
 
 ```clojure
 (assert (not= (c/indexed-set [1])
@@ -114,11 +123,9 @@ Sets are considered equivalent (modulo `=`) iff they index identical information
 (assert (not= (c/indexed-set 1) #{1}))
 ```
 
-## Other considerations
+## Further information
 
-Comprehend assumes that the structures you store are not cyclical at the `IPersistentCollection` level. If you really do wish to store such structures, try using `^::c/opaque` annotations.
-
-I explain some of the ideas behind Comprehend in this [blog post](http://jdevuyst.blogspot.com/2014/05/comprehend-clojure-pattern-matching.html).
+Comprehend is powered by [core.logic](https://github.com/clojure/core.logic). I explain the main ideas behind the implementation in a [blog post](http://jdevuyst.blogspot.com/2014/05/comprehend-clojure-pattern-matching.html).
 
 ## License
 

@@ -164,21 +164,27 @@
         patterns (map (partial annotate-ungrounded-terms explicit-vars) patterns)]
     `(let [s# ~s
            lookup# #(map (partial (.-m s#)) %)]
-       (for [[~@explicit-vars]
-             (map lookup#
-                  (pldb/with-db (.-idx s#)
-                                ; bogus var required when explicit-vars is empty
-                                ; TO DO: should get rid of run* instead
-                                (l/run* [~@explicit-vars bogus-var#]
-                                        (let [ren# (memoize #(cond (~explicit-vars %) %
-                                                                   (and (coll? %)
-                                                                        (-> % meta ::opaque not)) (l/lvar)
-                                                                   :else (hash %)))
-                                              make-goal# (fn [f# & args#]
-                                                           (apply f# args#))]
-                                          (fn [a#]
-                                            (->> [~@patterns]
-                                                 (mapcat (partial describe ren# make-goal#))
-                                                 (reduce lp/bind a#))))
-                                        (l/== bogus-var# nil))))]
-         ~expr))))
+       (->> (for [[~@explicit-vars]
+                  (map lookup#
+                       (pldb/with-db
+                         (.-idx s#)
+                         ; bogus var required when explicit-vars is empty
+                         ; TO DO: should get rid of run* instead
+                         (l/run* [~@explicit-vars bogus-var#]
+                                 (let [ren# (memoize #(cond (~explicit-vars %) %
+                                                            (and (coll? %)
+                                                                 (-> % meta ::opaque not)) (l/lvar)
+                                                            :else (hash %)))
+                                       make-goal# (fn [f# & args#]
+                                                    (apply f# args#))]
+                                   (fn [a#]
+                                     (->> [~@patterns]
+                                          (mapcat (partial describe ren# make-goal#))
+                                          (reduce lp/bind a#))))
+                                 (l/== bogus-var# nil))))]
+              ~expr)
+            (filter (comp not (partial = ::skip)))))))
+
+(defmacro catch-up [s & rdecl]
+  (assert (>= (count rdecl) 2) "syntax: (catch-up s comprehend-block+)")
+  )
