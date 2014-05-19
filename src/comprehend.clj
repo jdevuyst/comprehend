@@ -192,7 +192,8 @@
                                           (reduce lp/bind a#))))
                                  (l/== bogus-var# nil))))]
               ~expr)
-            (filter (comp not (partial = ::skip)))))))
+            (filter (comp not (partial = ::skip)))
+            seq))))
 
 (defn mark [s & markers]
   (vary-meta s update-in [::log] into markers))

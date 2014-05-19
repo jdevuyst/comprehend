@@ -106,7 +106,7 @@ Think of `^::c/opaque x` as saying that you will not attempt pattern matching on
 (c/comprehend (c/indexed-set [^::c/opaque [1]])
               [[x]]
               x)
-;=> ()
+;=> nil
 
 (c/comprehend (c/indexed-set [1] [^::c/opaque [1]])
               [[x]]

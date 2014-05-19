@@ -71,14 +71,14 @@
       (is (= (comprehend (indexed-set #{1})
                          #{x 4}
                          x)
-             [])))
+             nil)))
     (testing "Vectors and lists"
       (is (= (comprehend (indexed-set [1 2]
                                       [3]
                                       [4 5 6 7])
                          [x y z]
                          :something)
-             []))
+             nil))
       (is (= (set (comprehend (indexed-set [1 2 3]
                                            [4 5 6]
                                            [7 8])
@@ -105,7 +105,7 @@
                                       '(3 4))
                          '(x y)
                          [x y])
-             [])))
+             nil)))
     (testing "Maps"
       (is (= (set (comprehend (indexed-set {1 2}
                                            {3 4 5 6})
@@ -130,7 +130,7 @@
       (is (= (comprehend (indexed-set [true false])
                          [x true]
                          x)
-             []))
+             nil))
       (is (= (comprehend (indexed-set [true false])
                          [x (identity false)]
                          x)
@@ -142,7 +142,7 @@
       (is (= (comprehend (indexed-set ['a 'b])
                          [x 'a]
                          x)
-             []))
+             nil))
       (is (= (comprehend (indexed-set ['a 1] ['b 2])
                          ['a x]
                          x)
@@ -266,7 +266,7 @@
   (is (= (c/comprehend (c/indexed-set [^::c/opaque [1]])
                        [[x]]
                        x)
-         '()))
+         nil))
   (is (= (c/comprehend (c/indexed-set [1] [^::c/opaque [1]])
                        [[x]]
                        x)
