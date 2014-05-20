@@ -220,7 +220,9 @@
       (is (= (dissoc (meta s) ::c/log)
              (dissoc (meta (disj s (first s))) ::c/log)))
       (is (= (-> (c/indexed-set 1 2 3) (c/mark :a :b) (disj 3) (conj 4) (disj 3) (conj 4) meta ::c/log)
-             '({:conj 4} {:disj 3} :b :a {:conj 3} {:conj 2} {:conj 1})))))
+             '({:conj 4} {:disj 3} :b :a {:conj 3} {:conj 2} {:conj 1})))
+      (is (= (-> (c/indexed-set 1 2 3) (c/mark :a :b) (disj 3) (conj 3) (disj 3) (conj 4) (disj 4) (disj 3) (conj 4) (since :a))
+             '{:conj #{4} :disj #{3}}))))
   (testing "Other"
     (is (indexed-set? (indexed-set 1 2)))
     (is (not (indexed-set? (hash-set 1 2))))))

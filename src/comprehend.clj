@@ -165,6 +165,26 @@
                   x))
               p))
 
+(defn mark [s & markers]
+  (vary-meta s update-in [::log] into markers))
+
+(defn since [s marker]
+  (->> s
+       meta
+       ::log
+       (take-while (partial not= marker))
+       (filter map?)
+       (reduce (fn [{conj-set :conj disj-set :disj} {conj-el :conj disj-el :disj :as x}]
+                 {:conj (cond-> conj-set
+                                (and (contains? x :conj)
+                                     (not (contains? disj-set conj-el)))
+                                (conj conj-el))
+                  :disj (cond-> disj-set
+                                (and (contains? x :disj)
+                                     (not (contains? conj-set disj-el)))
+                                (conj disj-el))})
+               {:conj #{} :disj #{}})))
+
 (defmacro comprehend [s & rdecl]
   (assert (>= (count rdecl) 2) "syntax: (comprehend s pattern+ expr)")
   (let [patterns (butlast rdecl)
@@ -194,6 +214,3 @@
               ~expr)
             (filter (comp not (partial = ::skip)))
             seq))))
-
-(defn mark [s & markers]
-  (vary-meta s update-in [::log] into markers))
