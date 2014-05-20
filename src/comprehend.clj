@@ -185,6 +185,13 @@
                                 (conj disj-el))})
                {:conj #{} :disj #{}})))
 
+(defmacro auto-comprehend [s & patterns]
+  (let [explicit-vars (->> patterns (unbound-symbols &env) set)]
+    `(comprehend ~s
+                 ~@patterns
+                 [~@(interleave (map keyword explicit-vars)
+                                explicit-vars)])))
+
 (defmacro comprehend [s & rdecl]
   (assert (>= (count rdecl) 2) "syntax: (comprehend s pattern+ expr)")
   (let [patterns (butlast rdecl)
