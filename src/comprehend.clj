@@ -6,8 +6,10 @@
 
 (declare indexed-set? conj* indexed-set disj*)
 
-; The following relations are subject to change in future versions
+;; The following relations are not part of the API.
+;; Do not use directly.
 (pldb/db-rel roots-rel ^:index v)
+(pldb/db-rel marks-rel ^:index m ^:index v)
 (pldb/db-rel set-element-rel ^:index s ^:index v)
 (pldb/db-rel list-element-rel ^:index l ^:index i ^:index v)
 (pldb/db-rel map-element-rel ^:index m ^:index k ^:index v)
@@ -16,7 +18,7 @@
 (defn- roots [s]
   (-> roots-rel pldb/rel-key ((.-idx s)) ::pldb/unindexed))
 
-(deftype Set [m idx meta]
+(deftype Set [m idx markers meta]
   clojure.lang.IHashEq
   (hasheq [this] (-> this .-idx hash))
   clojure.lang.Counted
@@ -37,7 +39,7 @@
   clojure.lang.ILookup
   (valAt [this k] (.get this k))
   clojure.lang.IObj
-  (withMeta [this mdata] (Set. (.-m this) (.-idx this) mdata))
+  (withMeta [this m] (Set. (.-m this) (.-idx this) (.-markers this) m))
   (meta [this] (.-meta this))
   Object
   (toString [this] (-> this set .toString))
@@ -67,7 +69,7 @@
 
 (defn describe
   "Describe is a public function for technical reasons. Do not use directly."
-  [ren make-rel x]
+  [markers ren make-rel x]
   (letfn [(f [x]
              (cond (-> x meta ::opaque)
                    nil
@@ -95,8 +97,21 @@
 
                    :else
                    nil))]
-    (cons (make-rel roots-rel (ren x))
-          (f x))))
+    (concat [(make-rel roots-rel (ren x))]
+            (map (fn [marker] (make-rel marks-rel marker (ren x))) markers)
+            (f x))))
+
+(defn- annotate-ungrounded-terms [var? p]
+  (w/postwalk (fn [x]
+                (if (coll? x)
+                  (with-meta x
+                             {::opaque (->> x
+                                            (filter #(or (var? %)
+                                                         (and (coll? %)
+                                                              (-> % meta ::opaque not))))
+                                            empty?)})
+                  x))
+              p))
 
 (defn- conj* [s o]
   (if (contains? s o)
@@ -105,13 +120,14 @@
           ren (fn [o]
                 (swap! !m assoc! (hash o) o)
                 (hash o))
-          facts (doall (describe ren vector o))]
+          facts (doall (describe (.-markers s) ren vector o))]
       (Set. (persistent! @!m)
             (apply pldb/db-facts (.-idx s) facts)
-            (update-in (meta s) [::log] conj {:conj o})))))
+            (.-markers s)
+            (.-meta s)))))
 
 (defn indexed-set
-  ([] (Set. {} pldb/empty-db {}))
+  ([] (Set. {} pldb/empty-db #{} {}))
   ([o] (conj* (indexed-set) o))
   ([o & os] (reduce conj* (indexed-set o) os)))
 
@@ -120,7 +136,8 @@
     s
     (let [!subterms (atom #{})
           o-facts (->> o
-                       (describe (fn [o]
+                       (describe (.-markers s)
+                                 (fn [o]
                                    (swap! !subterms conj (hash o))
                                    (hash o))
                                  vector)
@@ -142,6 +159,7 @@
                             (map second)
                             (map (partial (.-m s)))
                             (mapcat (partial describe
+                                             (.-markers s)
                                              (fn [o]
                                                (swap! !subterms disj (hash o))
                                                (hash o))
@@ -151,73 +169,51 @@
             (reduce (partial apply pldb/db-retraction)
                     (.-idx s)
                     (reduce disj o-facts pinned-facts))
-            (update-in (meta s) [::log] conj {:disj o})))))
-
-(defn- annotate-ungrounded-terms [var? p]
-  (w/postwalk (fn [x]
-                (if (coll? x)
-                  (with-meta x
-                             {::opaque (->> x
-                                            (filter #(or (var? %)
-                                                         (and (coll? %)
-                                                              (-> % meta ::opaque not))))
-                                            empty?)})
-                  x))
-              p))
+            (.-markers s)
+            (.-meta s)))))
 
 (defn mark [s & markers]
-  (vary-meta s update-in [::log] into markers))
+  (Set. (.-m s) (.-idx s) (into (.-markers s) markers) (.-meta s)))
 
-(defn since [s marker]
-  (->> s
-       meta
-       ::log
-       (take-while (partial not= marker))
-       (filter map?)
-       (reduce (fn [{conj-set :conj disj-set :disj} {conj-el :conj disj-el :disj :as x}]
-                 {:conj (cond-> conj-set
-                                (and (contains? x :conj)
-                                     (not (contains? disj-set conj-el)))
-                                (conj conj-el))
-                  :disj (cond-> disj-set
-                                (and (contains? x :disj)
-                                     (not (contains? conj-set disj-el)))
-                                (conj disj-el))})
-               {:conj #{} :disj #{}})))
-
-(defmacro auto-comprehend [s & patterns]
-  (let [explicit-vars (->> patterns (unbound-symbols &env) set)]
-    `(comprehend ~s
-                 ~@patterns
-                 [~@(interleave (map keyword explicit-vars)
-                                explicit-vars)])))
-
-(defmacro comprehend [s & rdecl]
-  (assert (>= (count rdecl) 2) "syntax: (comprehend s pattern+ expr)")
-  (let [patterns (butlast rdecl)
+(defmacro comprehend [& rdecl]
+  (assert (>= (count rdecl) 3) "syntax: (comprehend s pattern+ expr)")
+  (let [[marker rdecl] (if (-> rdecl first keyword?)
+                         [(first rdecl) (rest rdecl)]
+                         [nil rdecl])
+        [s rdecl] [(first rdecl) (rest rdecl)]
+        patterns (butlast rdecl)
         expr (last rdecl)
         explicit-vars (->> patterns (unbound-symbols &env) set)
-        patterns (map (partial annotate-ungrounded-terms explicit-vars) patterns)]
-    `(let [s# ~s
-           lookup# #(map (partial (.-m s#)) %)]
-       (->> (for [[~@explicit-vars]
-                  (map lookup#
-                       (pldb/with-db
-                         (.-idx s#)
-                         ; bogus var required when explicit-vars is empty
-                         ; TO DO: should get rid of run* instead
-                         (l/run* [~@explicit-vars bogus-var#]
-                                 (let [ren# (memoize #(cond (~explicit-vars %) %
-                                                            (and (coll? %)
-                                                                 (-> % meta ::opaque not)) (l/lvar)
-                                                            :else (hash %)))
+        patterns (map (partial annotate-ungrounded-terms explicit-vars) patterns)
+        s-name (gensym "s__")
+        ren-name (gensym "ren__")]
+    `(->> (for [[~@explicit-vars]
+                (let [~s-name ~s]
+                  (->> (pldb/with-db
+                         (.-idx ~s-name)
+                         (l/run* [~@explicit-vars q#]
+                                 (let [~ren-name (memoize #(cond (~explicit-vars %) %
+                                                                 (and (coll? %)
+                                                                      (-> % meta ::opaque not)) (l/lvar)
+                                                                 :else (hash %)))
                                        make-goal# (fn [f# & args#]
                                                     (apply f# args#))]
                                    (fn [a#]
                                      (->> [~@patterns]
-                                          (mapcat (partial describe ren# make-goal#))
-                                          (reduce lp/bind a#))))
-                                 (l/== bogus-var# nil))))]
-              ~expr)
-            (filter (comp not (partial = ::skip)))
-            seq))))
+                                          (mapcat (partial describe nil ~ren-name make-goal#))
+                                          ~@(if marker
+                                              [`(cons (l/conde ~@(for [pattern patterns]
+                                                                   `[(marks-rel ~marker (~ren-name ~pattern))])))])
+                                          (reduce lp/bind a#))))))
+                       (map #(map (.-m ~s-name) %))))]
+            ~expr)
+          (filter (comp not (partial = ::skip)))
+          seq)))
+
+(defmacro auto-comprehend [s & patterns]
+  (let [explicit-vars (->> patterns (unbound-symbols &env) set)]
+    `(->> (comprehend ~s
+                      ~@patterns
+                      ~(->> explicit-vars
+                            (map (juxt keyword symbol))
+                            (into {}))))))

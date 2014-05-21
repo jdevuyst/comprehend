@@ -179,6 +179,15 @@
                              [2]
                              true)
                [true])))))
+  (testing "Forward comprehension"
+    (is (= (set (comprehend :marker
+                            (-> (indexed-set [1 2] [2 3] [3 4] [5 6])
+                                (mark :marker)
+                                (conj [4 5]))
+                            [x y]
+                            [y z]
+                            [x y z]))
+           #{[3 4 5] [4 5 6]})))
   (testing "Strong equality and index integrity"
     (let [S (indexed-set [[:test] [[[#{:a}]]]]
                          [1 [2 "test" {[[#{:a}]] [:b]}] 3]
@@ -218,12 +227,11 @@
       (is (= (dissoc (meta s) ::c/log)
              (dissoc (meta (disj s (gensym))) ::c/log)))
       (is (= (dissoc (meta s) ::c/log)
-             (dissoc (meta (disj s (first s))) ::c/log)))
-      (is (= (-> (c/indexed-set 1 2 3) (c/mark :a :b) (disj 3) (conj 4) (disj 3) (conj 4) meta ::c/log)
-             '({:conj 4} {:disj 3} :b :a {:conj 3} {:conj 2} {:conj 1})))
-      (is (= (-> (c/indexed-set 1 2 3) (c/mark :a :b) (disj 3) (conj 3) (disj 3) (conj 4) (disj 4) (disj 3) (conj 4) (since :a))
-             '{:conj #{4} :disj #{3}}))))
+             (dissoc (meta (disj s (first s))) ::c/log)))))
   (testing "Other"
+    (is (= (set (c/auto-comprehend (c/indexed-set [1 2 [3 [4]]] [10 20 [30 [40]]])
+                                   [a b [c [d]]]))
+           #{{:a 1 :b 2 :c 3 :d 4} {:a 10 :b 20 :c 30 :d 40}}))
     (is (indexed-set? (indexed-set 1 2)))
     (is (not (indexed-set? (hash-set 1 2))))))
 
