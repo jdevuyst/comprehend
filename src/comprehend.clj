@@ -86,13 +86,15 @@
           (filter (comp not (partial = ::skip)))
           seq)))
 
-(defmacro auto-comprehend [s & patterns]
-  (let [explicit-vars (->> patterns (unbound-symbols &env) set)]
-    `(->> (comprehend ~s
-                      ~@patterns
-                      ~(->> explicit-vars
-                            (map (juxt keyword symbol))
-                            (into {}))))))
+(defmacro auto-comprehend [& decl]
+  (let [patterns (rest (if (-> decl first keyword?)
+                         (rest decl)
+                         decl))
+        explicit-vars (->> patterns (unbound-symbols &env) set)]
+    `(comprehend ~@decl
+                 ~(->> explicit-vars
+                       (map (juxt keyword symbol))
+                       (into {})))))
 
 ;;
 ;; PRIVATE FUNCTIONS

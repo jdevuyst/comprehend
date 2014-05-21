@@ -230,6 +230,9 @@
     (is (= (set (c/auto-comprehend (c/indexed-set [1 2 [3 [4]]] [10 20 [30 [40]]])
                                    [a b [c [d]]]))
            #{{:a 1 :b 2 :c 3 :d 4} {:a 10 :b 20 :c 30 :d 40}}))
+    (is (= (set (c/auto-comprehend :marker (into (mark (c/indexed-set 0) :marker) #{[1 2 [3 [4]]] [10 20 [30 [40]]]})
+                                   [a b [c [d]]]))
+           #{{:a 1 :b 2 :c 3 :d 4} {:a 10 :b 20 :c 30 :d 40}}))
     (is (indexed-set? (indexed-set 1 2)))
     (is (not (indexed-set? (hash-set 1 2))))))
 
