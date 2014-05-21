@@ -176,7 +176,9 @@
   (Set. (.-m s) (.-idx s) (into (.-markers s) markers) (.-meta s)))
 
 (defmacro comprehend [& rdecl]
-  (assert (>= (count rdecl) 3) "syntax: (comprehend s pattern+ expr)")
+  (assert (>= (count rdecl)
+              (if (-> rdecl first keyword?) 4 3))
+          "syntax: (comprehend marker? s pattern+ expr)")
   (let [[marker rdecl] (if (-> rdecl first keyword?)
                          [(first rdecl) (rest rdecl)]
                          [nil rdecl])

@@ -222,12 +222,10 @@
   (testing "Metadata"
     (let [m {:a :b :c :d}
           s (with-meta (indexed-set 1 2) m)]
-      (is (= (dissoc (meta s) ::c/log)
-             (dissoc (meta (conj s (gensym))) ::c/log)))
-      (is (= (dissoc (meta s) ::c/log)
-             (dissoc (meta (disj s (gensym))) ::c/log)))
-      (is (= (dissoc (meta s) ::c/log)
-             (dissoc (meta (disj s (first s))) ::c/log)))))
+      (is (= (meta s) m))
+      (is (= m (meta (conj s (gensym)))))
+      (is (= m (meta (disj s (first s)))))
+      (is (= m (meta (mark s :a :b :c))))))
   (testing "Other"
     (is (= (set (c/auto-comprehend (c/indexed-set [1 2 [3 [4]]] [10 20 [30 [40]]])
                                    [a b [c [d]]]))
