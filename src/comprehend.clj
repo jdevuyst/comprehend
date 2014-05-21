@@ -4,19 +4,11 @@
             [clojure.core.logic.pldb :as pldb]
             [clojure.walk :as w]))
 
-(declare indexed-set? conj* indexed-set disj*)
+(declare indexed-set indexed-set? roots unbound-symbols describe annotate-ungrounded-terms conj* disj*)
 
-;; The following relations are not part of the API.
-;; Do not use directly.
-(pldb/db-rel roots-rel ^:index v)
-(pldb/db-rel marks-rel ^:index m ^:index v)
-(pldb/db-rel set-element-rel ^:index s ^:index v)
-(pldb/db-rel list-element-rel ^:index l ^:index i ^:index v)
-(pldb/db-rel map-element-rel ^:index m ^:index k ^:index v)
-(pldb/db-rel list-count-rel ^:index l ^:index c)
-
-(defn- roots [s]
-  (-> roots-rel pldb/rel-key ((.-idx s)) ::pldb/unindexed))
+;;
+;; PUBLIC API
+;;
 
 (deftype Set [m idx markers meta]
   clojure.lang.IHashEq
@@ -46,8 +38,75 @@
   (equals [this o] (.equiv this o))
   (hashCode [this] (.hasheq this)))
 
+(defn indexed-set
+  ([] (Set. {} pldb/empty-db #{} {}))
+  ([o] (conj* (indexed-set) o))
+  ([o & os] (reduce conj* (indexed-set o) os)))
+
 (defn indexed-set? [x]
   (= Set (type x)))
+
+(defn mark [s & markers]
+  (Set. (.-m s) (.-idx s) (into (.-markers s) markers) (.-meta s)))
+
+(defmacro comprehend [& rdecl]
+  (assert (>= (count rdecl)
+              (if (-> rdecl first keyword?) 4 3))
+          "syntax: (comprehend marker? s pattern+ expr)")
+  (let [[marker rdecl] (if (-> rdecl first keyword?)
+                         [(first rdecl) (rest rdecl)]
+                         [nil rdecl])
+        [s rdecl] [(first rdecl) (rest rdecl)]
+        patterns (butlast rdecl)
+        expr (last rdecl)
+        explicit-vars (->> patterns (unbound-symbols &env) set)
+        patterns (map (partial annotate-ungrounded-terms explicit-vars) patterns)
+        s-name (gensym "s__")
+        ren-name (gensym "ren__")]
+    `(->> (for [[~@explicit-vars]
+                (let [~s-name ~s]
+                  (->> (pldb/with-db
+                         (.-idx ~s-name)
+                         (l/run* [~@explicit-vars q#]
+                                 (let [~ren-name (memoize #(cond (~explicit-vars %) %
+                                                                 (and (coll? %)
+                                                                      (-> % meta ::opaque not)) (l/lvar)
+                                                                 :else (hash %)))
+                                       make-goal# (fn [f# & args#]
+                                                    (apply f# args#))]
+                                   (fn [a#]
+                                     (->> [~@patterns]
+                                          (mapcat (partial describe nil ~ren-name make-goal#))
+                                          ~@(if marker
+                                              [`(cons (l/conde ~@(for [pattern patterns]
+                                                                   `[(marks-rel ~marker (~ren-name ~pattern))])))])
+                                          (reduce lp/bind a#))))))
+                       (map #(map (.-m ~s-name) %))))]
+            ~expr)
+          (filter (comp not (partial = ::skip)))
+          seq)))
+
+(defmacro auto-comprehend [s & patterns]
+  (let [explicit-vars (->> patterns (unbound-symbols &env) set)]
+    `(->> (comprehend ~s
+                      ~@patterns
+                      ~(->> explicit-vars
+                            (map (juxt keyword symbol))
+                            (into {}))))))
+
+;;
+;; PRIVATE FUNCTIONS
+;;
+
+(pldb/db-rel roots-rel ^:index v)
+(pldb/db-rel marks-rel ^:index m ^:index v)
+(pldb/db-rel set-element-rel ^:index s ^:index v)
+(pldb/db-rel list-element-rel ^:index l ^:index i ^:index v)
+(pldb/db-rel map-element-rel ^:index m ^:index k ^:index v)
+(pldb/db-rel list-count-rel ^:index l ^:index c)
+
+(defn- roots [s]
+  (-> roots-rel pldb/rel-key ((.-idx s)) ::pldb/unindexed))
 
 (letfn [(bound? [env x]
                 (or (contains? env x) (resolve x)))
@@ -126,11 +185,6 @@
             (.-markers s)
             (.-meta s)))))
 
-(defn indexed-set
-  ([] (Set. {} pldb/empty-db #{} {}))
-  ([o] (conj* (indexed-set) o))
-  ([o & os] (reduce conj* (indexed-set o) os)))
-
 (defn- disj* [s o]
   (if-not (contains? s o)
     s
@@ -171,51 +225,3 @@
                     (reduce disj o-facts pinned-facts))
             (.-markers s)
             (.-meta s)))))
-
-(defn mark [s & markers]
-  (Set. (.-m s) (.-idx s) (into (.-markers s) markers) (.-meta s)))
-
-(defmacro comprehend [& rdecl]
-  (assert (>= (count rdecl)
-              (if (-> rdecl first keyword?) 4 3))
-          "syntax: (comprehend marker? s pattern+ expr)")
-  (let [[marker rdecl] (if (-> rdecl first keyword?)
-                         [(first rdecl) (rest rdecl)]
-                         [nil rdecl])
-        [s rdecl] [(first rdecl) (rest rdecl)]
-        patterns (butlast rdecl)
-        expr (last rdecl)
-        explicit-vars (->> patterns (unbound-symbols &env) set)
-        patterns (map (partial annotate-ungrounded-terms explicit-vars) patterns)
-        s-name (gensym "s__")
-        ren-name (gensym "ren__")]
-    `(->> (for [[~@explicit-vars]
-                (let [~s-name ~s]
-                  (->> (pldb/with-db
-                         (.-idx ~s-name)
-                         (l/run* [~@explicit-vars q#]
-                                 (let [~ren-name (memoize #(cond (~explicit-vars %) %
-                                                                 (and (coll? %)
-                                                                      (-> % meta ::opaque not)) (l/lvar)
-                                                                 :else (hash %)))
-                                       make-goal# (fn [f# & args#]
-                                                    (apply f# args#))]
-                                   (fn [a#]
-                                     (->> [~@patterns]
-                                          (mapcat (partial describe nil ~ren-name make-goal#))
-                                          ~@(if marker
-                                              [`(cons (l/conde ~@(for [pattern patterns]
-                                                                   `[(marks-rel ~marker (~ren-name ~pattern))])))])
-                                          (reduce lp/bind a#))))))
-                       (map #(map (.-m ~s-name) %))))]
-            ~expr)
-          (filter (comp not (partial = ::skip)))
-          seq)))
-
-(defmacro auto-comprehend [s & patterns]
-  (let [explicit-vars (->> patterns (unbound-symbols &env) set)]
-    `(->> (comprehend ~s
-                      ~@patterns
-                      ~(->> explicit-vars
-                            (map (juxt keyword symbol))
-                            (into {}))))))
