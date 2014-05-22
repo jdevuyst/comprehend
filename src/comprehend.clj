@@ -4,7 +4,10 @@
             [clojure.core.logic.pldb :as pldb]
             [clojure.walk :as w]))
 
-(declare indexed-set indexed-set? roots unbound-symbols describe annotate-ungrounded-terms conj* disj*)
+(declare indexed-set indexed-set?
+         roots unbound-symbols describe annotate-ungrounded-terms
+         conj* disj*
+         retract-marks)
 
 ;;
 ;; PUBLIC API
@@ -21,7 +24,8 @@
   (empty [this] (indexed-set))
   (equiv [this o] (or (identical? this o)
                       (and (indexed-set? o)
-                           (.equiv (.-idx this) (.-idx o)))))
+                           (.equiv (.-idx this) (.-idx o))
+                           (.equiv (.-markers this) (.-markers o)))))
   (disjoin [this k] (disj* this k))
   (contains [this k] (-> this roots (contains? (-> k hash list))))
   (get [this k] (if (.contains this k)
@@ -46,17 +50,10 @@
 (defn indexed-set? [x]
   (= Set (type x)))
 
-(defn mark [s & markers]
-  (Set. (.-m s) (.-idx s) (into (.-markers s) markers) (.-meta s)))
-
-(defmacro comprehend [& rdecl]
-  (assert (>= (count rdecl)
-              (if (-> rdecl first keyword?) 4 3))
-          "syntax: (comprehend marker? s pattern+ expr)")
-  (let [[marker rdecl] (if (-> rdecl first keyword?)
-                         [(first rdecl) (rest rdecl)]
-                         [nil rdecl])
-        [s rdecl] [(first rdecl) (rest rdecl)]
+(defmacro comprehend [v & rdecl]
+  (assert (>= (count rdecl) 2)
+          "syntax: (comprehend s pattern+ expr) or (comprehend [s marker] pattern+ expr)")
+  (let [[s marker] (if (vector? v) v [v nil])
         patterns (butlast rdecl)
         expr (last rdecl)
         explicit-vars (->> patterns (unbound-symbols &env) set)
@@ -86,15 +83,25 @@
           (filter (comp not (partial = ::skip)))
           seq)))
 
-(defmacro auto-comprehend [& decl]
-  (let [patterns (rest (if (-> decl first keyword?)
-                         (rest decl)
-                         decl))
-        explicit-vars (->> patterns (unbound-symbols &env) set)]
-    `(comprehend ~@decl
+(defmacro auto-comprehend [v & patterns]
+  (let [explicit-vars (->> patterns (unbound-symbols &env) set)]
+    `(comprehend ~v
+                 ~@patterns
                  ~(->> explicit-vars
                        (map (juxt keyword symbol))
                        (into {})))))
+
+(defn mark [s & markers]
+  (Set. (.-m s)
+        (retract-marks s markers)
+        (into (.-markers s) markers)
+        (.-meta s)))
+
+(defn unmark [s & markers]
+  (Set. (.-m s)
+        (retract-marks s markers)
+        (reduce disj (.-markers s) markers)
+        (.-meta s)))
 
 ;;
 ;; PRIVATE FUNCTIONS
@@ -227,3 +234,11 @@
                     (reduce disj o-facts pinned-facts))
             (.-markers s)
             (.-meta s)))))
+
+(defn- retract-marks [s markers]
+  (->> markers
+       (mapcat #(comprehend [s %]
+                            x
+                            [marks-rel % (hash x)]))
+       (reduce (partial apply pldb/db-retraction)
+               (.-idx s))))

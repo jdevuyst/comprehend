@@ -180,20 +180,30 @@
                              true)
                [true])))))
   (testing "Forward comprehension"
-    (is (= (set (comprehend :marker
-                            (-> (indexed-set [1 2] [2 3] [3 4] [5 6])
-                                (mark :marker)
-                                (conj [4 5]))
+    (is (= (set (comprehend [(-> (indexed-set [1 2] [2 3] [3 4] [5 6])
+                                 (mark :marker)
+                                 (conj [4 5]))
+                             :marker]
                             [x y]
                             [y z]
                             [x y z]))
-           #{[3 4 5] [4 5 6]})))
+           #{[3 4 5] [4 5 6]}))
+    (is (= (-> (indexed-set)
+               (mark :a)
+               (into [1 2 3])
+               (mark :a)
+               (into [4 5 6])
+               (as-> s (comprehend [s :a] x x))
+               set)
+           #{4 5 6})))
   (testing "Strong equality and index integrity"
-    (let [S (indexed-set [[:test] [[[#{:a}]]]]
-                         [1 [2 "test" {[[#{:a}]] [:b]}] 3]
-                         [:test]
-                         4)
-          a [[[[[2 [[[#{:a}]]]]]]3] (gensym)]
+    (let [S (-> (indexed-set)
+                (mark :a :b)
+                (into '([[:test] [[[#{:a}]]]]
+                        [1 [2 "test" {[[#{:a}]] [:b]}] 3]
+                        [:test]
+                        4)))
+          a [[[[[2 [[[#{:a}]]]]]] 3] (gensym)]
           b [[:test] [[[#{:a}]]]]
           norm (partial w/postwalk #(if (map? %)
                                       (->> %
@@ -201,7 +211,8 @@
                                            (into {}))
                                       %))
           strong= #(and (= (.-m %1) (.-m %2))
-                        (= (norm (.-idx %1)) (norm (.-idx %2))))]
+                        (= (norm (.-idx %1)) (norm (.-idx %2)))
+                        (= (.-markers %1) (.-markers %2)))]
       (is (not (strong= S (conj S a))))
       (is (strong= S (disj S a)))
       (is (strong= (conj S a) (conj (conj S a) a)))
@@ -211,6 +222,8 @@
       (is (strong= S (conj S b)))
       (is (strong= (conj S b) (-> S (conj b) (disj b) (conj b))))
       (is (strong= S (conj (disj S b) b)))
+      (is (strong= (indexed-set 1 2 [3 4])
+                   (unmark (into (mark (indexed-set) :a) '(1 2 [3 4])) :a)))
       (is (= (comprehend (disj S b)
                          [1 [2 "test" {[[#{:a}]] [x]}] 3]
                          x)
@@ -227,10 +240,22 @@
       (is (= m (meta (disj s (first s)))))
       (is (= m (meta (mark s :a :b :c))))))
   (testing "Other"
+    (is (= (-> (indexed-set)
+               (mark :a :b :c)
+               (into [1 2])
+               (mark :a :b :c)
+               (into [3 4])
+               (mark :a :b)
+               (conj 5)
+               (mark :c)
+               (unmark :b :c)
+               .-markers)
+           #{:a}))
     (is (= (set (c/auto-comprehend (c/indexed-set [1 2 [3 [4]]] [10 20 [30 [40]]])
                                    [a b [c [d]]]))
            #{{:a 1 :b 2 :c 3 :d 4} {:a 10 :b 20 :c 30 :d 40}}))
-    (is (= (set (c/auto-comprehend :marker (into (mark (c/indexed-set 0) :marker) #{[1 2 [3 [4]]] [10 20 [30 [40]]]})
+    (is (= (set (c/auto-comprehend [(into (mark (c/indexed-set 0) :marker) #{[1 2 [3 [4]]] [10 20 [30 [40]]]})
+                                    :marker]
                                    [a b [c [d]]]))
            #{{:a 1 :b 2 :c 3 :d 4} {:a 10 :b 20 :c 30 :d 40}}))
     (is (indexed-set? (indexed-set 1 2)))
@@ -238,7 +263,7 @@
 
 (deftest README-examples
   (is (= (set (c/indexed-set 1 2 3))
-         (hash-set 1 2 3)))
+         (hash-set 1 3 2 3)))
   (let [s (c/indexed-set [:person 1] [:person 2] [:person 3]
                          [:parent-of 1 2] [:parent-of 2 3] [:parent-of 3 4])]
     (is (= (set (c/comprehend s
