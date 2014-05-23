@@ -4,14 +4,12 @@
             [clojure.core.logic.pldb :as pldb]
             [clojure.walk :as w]))
 
-(declare indexed-set indexed-set?
-         roots unbound-symbols describe annotate-ungrounded-terms
-         conj* disj*
-         retract-marks)
-
 ;;
 ;; PUBLIC API
 ;;
+
+(declare indexed-set indexed-set?
+         roots conj* disj* unbound-symbols describe annotate-ungrounded-terms retract-marks)
 
 (deftype Set [m idx markers meta]
   clojure.lang.IHashEq
@@ -50,46 +48,48 @@
 (defn indexed-set? [x]
   (= Set (type x)))
 
-(defmacro comprehend [v & rdecl]
-  (assert (>= (count rdecl) 2)
+(defmacro comprehend [& args]
+  (assert (>= (count args) 2)
           "syntax: (comprehend s pattern+ expr) or (comprehend [s marker] pattern+ expr)")
-  (let [[s marker] (if (vector? v) v [v nil])
+  (let [[marker rdecl] (if (= :marker (first args))
+                         [(second args) (drop 2 args)]
+                         [nil args])
+        [s rdecl] [(first rdecl) (rest rdecl)]
         patterns (butlast rdecl)
         expr (last rdecl)
         explicit-vars (->> patterns (unbound-symbols &env) set)
         patterns (map (partial annotate-ungrounded-terms explicit-vars) patterns)
         s-name (gensym "s__")
         ren-name (gensym "ren__")]
-    `(->> (for [[~@explicit-vars]
-                (let [~s-name ~s]
-                  (->> (pldb/with-db
-                         (.-idx ~s-name)
-                         (l/run* [~@explicit-vars q#]
-                                 (let [~ren-name (memoize #(cond (~explicit-vars %) %
-                                                                 (and (coll? %)
-                                                                      (-> % meta ::opaque not)) (l/lvar)
-                                                                 :else (hash %)))
-                                       make-goal# (fn [f# & args#]
-                                                    (apply f# args#))]
-                                   (fn [a#]
-                                     (->> [~@patterns]
-                                          (mapcat (partial describe nil ~ren-name make-goal#))
-                                          ~@(if marker
-                                              [`(cons (l/conde ~@(for [pattern patterns]
-                                                                   `[(marks-rel ~marker (~ren-name ~pattern))])))])
-                                          (reduce lp/bind a#))))))
-                       (map #(map (.-m ~s-name) %))))]
-            ~expr)
-          (filter (comp not (partial = ::skip)))
-          seq)))
+    `(let [~s-name ~s]
+       (->> (pldb/with-db
+              (.-idx ~s-name)
+              (l/run* [~@explicit-vars q#]
+                      (let [~ren-name (memoize #(cond (~explicit-vars %) %
+                                                      (and (coll? %)
+                                                           (-> % meta ::opaque not)) (l/lvar)
+                                                      :else (hash %)))
+                            make-goal# (fn [f# & args#]
+                                         (apply f# args#))]
+                        (fn [a#]
+                          (->> [~@patterns]
+                               (mapcat (partial describe nil ~ren-name make-goal#))
+                               ~@(if marker
+                                   [`(cons (l/conde ~@(for [pattern patterns]
+                                                        `[(marks-rel ~marker (~ren-name ~pattern))])))])
+                               (reduce lp/bind a#))))))
+            (map #(map (.-m ~s-name) %))
+            (map (fn [[~@explicit-vars]] ~expr))
+            (filter (comp not (partial = ::skip)))
+            seq))))
 
-(defmacro auto-comprehend [v & patterns]
-  (let [explicit-vars (->> patterns (unbound-symbols &env) set)]
-    `(comprehend ~v
-                 ~@patterns
-                 ~(->> explicit-vars
-                       (map (juxt keyword symbol))
-                       (into {})))))
+(defmacro auto-comprehend [& args]
+  `(comprehend ~@args
+               ~(->> args
+                     (unbound-symbols &env)
+                     set
+                     (map (juxt keyword symbol))
+                     (into {}))))
 
 (defn mark [s & markers]
   (Set. (.-m s)
@@ -237,7 +237,7 @@
 
 (defn- retract-marks [s markers]
   (->> markers
-       (mapcat #(comprehend [s %]
+       (mapcat #(comprehend :marker % s
                             x
                             [marks-rel % (hash x)]))
        (reduce (partial apply pldb/db-retraction)
