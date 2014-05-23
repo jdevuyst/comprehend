@@ -9,7 +9,7 @@
 ;;
 
 (declare indexed-set indexed-set?
-         roots conj* disj* unbound-symbols describe annotate-ungrounded-terms retract-marks)
+         roots conj* disj* unbound-symbols describe annotate-ungrounded-terms retract-marks comprehend*)
 
 (deftype Set [m idx markers meta]
   clojure.lang.IHashEq
@@ -49,39 +49,15 @@
   (= Set (type x)))
 
 (defmacro comprehend [& args]
-  (assert (>= (count args) 2)
-          "syntax: (comprehend s pattern+ expr) or (comprehend [s marker] pattern+ expr)")
-  (let [[marker rdecl] (if (= :marker (first args))
-                         [(second args) (drop 2 args)]
-                         [nil args])
-        [s rdecl] [(first rdecl) (rest rdecl)]
-        patterns (butlast rdecl)
-        expr (last rdecl)
-        explicit-vars (->> patterns (unbound-symbols &env) set)
-        patterns (map (partial annotate-ungrounded-terms explicit-vars) patterns)
-        s-name (gensym "s__")
-        ren-name (gensym "ren__")]
-    `(let [~s-name ~s]
-       (->> (pldb/with-db
-              (.-idx ~s-name)
-              (l/run* [~@explicit-vars q#]
-                      (let [~ren-name (memoize #(cond (~explicit-vars %) %
-                                                      (and (coll? %)
-                                                           (-> % meta ::opaque not)) (l/lvar)
-                                                      :else (hash %)))
-                            make-goal# (fn [f# & args#]
-                                         (apply f# args#))]
-                        (fn [a#]
-                          (->> [~@patterns]
-                               (mapcat (partial describe nil ~ren-name make-goal#))
-                               ~@(if marker
-                                   [`(cons (l/conde ~@(for [pattern patterns]
-                                                        `[(marks-rel ~marker (~ren-name ~pattern))])))])
-                               (reduce lp/bind a#))))))
-            (map #(map (.-m ~s-name) %))
-            (map (fn [[~@explicit-vars]] ~expr))
-            (filter (comp not (partial = ::skip)))
-            seq))))
+  `(comprehend* (comp seq
+                      (partial filter
+                               (comp not (partial = ::skip)))
+                      #(map (partial %1 %2) %3))
+                ~@args))
+
+(defmacro rcomprehend [& args]
+  `(comprehend* reduce
+                ~@args))
 
 (defmacro auto-comprehend [& args]
   `(comprehend ~@args
@@ -117,11 +93,10 @@
 (defn- roots [s]
   (-> roots-rel pldb/rel-key ((.-idx s)) ::pldb/unindexed))
 
-(letfn [(bound? [env x]
-                (or (contains? env x) (resolve x)))
-        (qsymb? [x] (and (= 2 (count x))
+(letfn [(qsymb? [x] (and (= 2 (count x))
                          (= (first x) 'quote)
                          (symbol? (second x))))
+
         (squach [x]
                 (cond (and (coll? x) (not (qsymb? x))) (mapcat squach x)
                       (map? x) (->> x
@@ -129,11 +104,14 @@
                                     concat
                                     (mapcat squach))
                       :else [x]))]
+  (defn- symbols [env x]
+    (filter symbol? (squach x))))
+
+(letfn [(bound? [env x]
+                (or (contains? env x) (resolve x)))]
   (defn- unbound-symbols [env x]
-    (->> x
-         squach
-         (filter symbol?)
-         (filter #(not (bound? env %))))))
+    (filter (complement (partial bound? env))
+            (symbols env x))))
 
 (defn describe
   "Describe is a public function for technical reasons. Do not use directly."
@@ -235,10 +213,57 @@
             (.-markers s)
             (.-meta s)))))
 
+(defmacro comprehend* [f & args]
+  (let [marker? (= :marker (first args))
+        [marker rdecl] (if marker?
+                         [(second args) (drop 2 args)]
+                         [nil args])
+        [s-name s] (if (-> rdecl first vector?)
+                     [(-> rdecl first first)
+                      (-> rdecl first second)]
+                     [(gensym "s__") (first rdecl)])
+        rdecl (rest rdecl)
+        patterns (butlast rdecl)
+        expr (last rdecl)
+        explicit-vars (->> patterns (unbound-symbols &env) set)
+        patterns (map (partial annotate-ungrounded-terms explicit-vars) patterns)
+        marker-name (gensym "marker__")
+        ren-name (gensym "ren__")]
+    `(let [~s-name ~s
+           ~marker-name ~marker]
+       (->> (pldb/with-db
+              (.-idx ~s-name)
+              (l/run* [~@explicit-vars q#]
+                      (let [~ren-name (memoize #(cond (~explicit-vars %) %
+                                                      (and (coll? %)
+                                                           (-> % meta ::opaque not)) (l/lvar)
+                                                      :else (hash %)))
+                            make-goal# (fn [f# & args#]
+                                         (apply f# args#))]
+                        (fn [a#]
+                          (->> [~@patterns]
+                               (mapcat (partial describe nil ~ren-name make-goal#))
+                               ~@(if marker
+                                   [`(cons (l/conde ~@(for [pattern patterns]
+                                                        `[(marks-rel ~marker-name (~ren-name ~pattern))])))])
+                               (reduce lp/bind a#))))))
+            (map #(map (.-m ~s-name) %))
+            (~f (fn [~s-name [~@explicit-vars]] ~expr)
+                ~(if marker?
+                   (if (contains? (set (symbols &env expr)) s-name)
+                     `(mark ~s-name ~marker-name)
+                     `(if (contains? (.-markers ~s-name) ~marker-name)
+                        ~s-name
+                        (mark ~s-name ~marker-name)))
+                   s-name))))))
+
 (defn- retract-marks [s markers]
   (->> markers
-       (mapcat #(comprehend :marker % s
-                            x
-                            [marks-rel % (hash x)]))
+       (mapcat #(for [x (pldb/with-db (.-idx s)
+                                      (l/run* [x]
+                                              (marks-rel % x)))]
+                  [% x]))
+       (map (fn [[marker x]]
+              [marks-rel marker x]))
        (reduce (partial apply pldb/db-retraction)
                (.-idx s))))
