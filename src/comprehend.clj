@@ -79,6 +79,13 @@
         (reduce disj (.-markers s) markers)
         (.-meta s)))
 
+(defmacro fixpoint [[name val] expr]
+  `(loop [prev# ~val
+          ~name ~expr]
+     (if (= prev# ~name)
+       ~name
+       (recur ~name ~expr))))
+
 ;;
 ;; PRIVATE FUNCTIONS
 ;;
