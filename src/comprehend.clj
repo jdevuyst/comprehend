@@ -214,7 +214,7 @@
             (.-meta s)))))
 
 (defmacro comprehend* [f & args]
-  (let [marker? (= :marker (first args))
+  (let [marker? (= :mark (first args))
         [marker rdecl] (if marker?
                          [(second args) (drop 2 args)]
                          [nil args])

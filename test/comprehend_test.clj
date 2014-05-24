@@ -180,7 +180,7 @@
                              true)
                [true])))))
   (testing "Forward comprehension"
-    (is (= (set (comprehend :marker :b
+    (is (= (set (comprehend :mark :b
                             (-> (indexed-set [1 2] [2 3] [3 4] [5 6])
                                 (mark :b)
                                 (conj [4 5]))
@@ -193,7 +193,7 @@
                (into [1 2 3])
                (mark :a)
                (into [4 5 6])
-               (as-> s (comprehend :marker :a s x x))
+               (as-> s (comprehend :mark :a s x x))
                set)
            #{4 5 6})))
   (testing "Strong equality and index integrity"
@@ -254,7 +254,7 @@
     (is (= (set (c/auto-comprehend (c/indexed-set [1 2 [3 [4]]] [10 20 [30 [40]]])
                                    [a b [c [d]]]))
            #{{:a 1 :b 2 :c 3 :d 4} {:a 10 :b 20 :c 30 :d 40}}))
-    (is (= (set (c/auto-comprehend :marker :a
+    (is (= (set (c/auto-comprehend :mark :a
                                    (into (mark (c/indexed-set 0) :a) #{[1 2 [3 [4]]] [10 20 [30 [40]]]})
                                    [a b [c [d]]]))
            #{{:a 1 :b 2 :c 3 :d 4} {:a 10 :b 20 :c 30 :d 40}}))
