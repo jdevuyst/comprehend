@@ -257,11 +257,7 @@
             (map #(map (.-m ~s-name) %))
             (~f (fn [~s-name [~@explicit-vars]] ~expr)
                 ~(if marker?
-                   (if (contains? (set (symbols &env expr)) s-name)
-                     `(mark ~s-name ~marker-name)
-                     `(if (contains? (.-markers ~s-name) ~marker-name)
-                        ~s-name
-                        (mark ~s-name ~marker-name)))
+                   `(mark ~s-name ~marker-name)
                    s-name))))))
 
 (defn- retract-marks [s markers]
