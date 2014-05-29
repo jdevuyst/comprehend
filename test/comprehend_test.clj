@@ -17,7 +17,6 @@
     (invariance-test S (set (seq S)))
     (invariance-test S (set S))
     (invariance-test S (count S))
-    (let [a (gensym)] (invariance-test S (set (cons a S))))
     (let [a (gensym)] (invariance-test S (set (conj S a))))
     (invariance-test S (set (conj S (first S))))
     (is (= (.hashCode (indexed-set 1 2)) (hash (indexed-set 1 2))))
@@ -259,7 +258,12 @@
                                    [a b [c [d]]]))
            #{{:a 1 :b 2 :c 3 :d 4} {:a 10 :b 20 :c 30 :d 40}}))
     (is (indexed-set? (indexed-set 1 2)))
-    (is (not (indexed-set? (hash-set 1 2))))))
+    (is (not (indexed-set? (hash-set 1 2))))
+    (is (= (fixpoint [x 1]
+                     (if (>= x 1000)
+                       x
+                       (* 2 x)))
+           1024))))
 
 (deftest README-examples
   (is (= (set (c/indexed-set 1 2 3))
