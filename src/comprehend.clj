@@ -79,6 +79,12 @@
         (reduce disj (.-markers s) markers)
         (.-meta s)))
 
+(defn fix [f]
+  #(let [v (f %)]
+     (if (= % v)
+       v
+       (recur v))))
+
 (defmacro fixpoint [[name val] expr]
   `(loop [~name ~val
           new-val# ~expr]
