@@ -40,7 +40,7 @@ Indexed sets shine when you want to perform pattern matching on them:
 ;=> ([:grandparent-of 1 3] [:grandparent-of 2 4])
 ```
 
-In the above example we match the patterns `[:parent-of a b]` and `[:parent-of b c]` on the indexed set `s`. For every match we yield the pattern `[:grantparent-of a c]`.
+In the above example we match the patterns `[:parent-of a b]` and `[:parent-of b c]` on the indexed set `s`. For every match we yield the pattern `[:grandparent-of a c]`.
 
 It is also possible to match on patterns in subcollections:
 
