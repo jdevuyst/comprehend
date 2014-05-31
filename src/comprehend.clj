@@ -86,12 +86,7 @@
        (recur v))))
 
 (defmacro fixpoint [[name val] expr]
-  `(loop [~name ~val
-          new-val# ~expr]
-     (if (= ~name new-val#)
-       ~name
-       (let [~name new-val#]
-         (recur new-val# ~expr)))))
+  `((fix (fn [~name] ~expr)) ~val))
 
 ;;
 ;; PRIVATE FUNCTIONS
