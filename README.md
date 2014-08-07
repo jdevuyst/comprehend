@@ -6,12 +6,12 @@ Comprehend contains a data structure for persistent indexed sets and a macro `co
 
 Indexed sets effectively serve as in-memory databases, but are just as easy to set up as native Clojure sets. The syntax for the `comprehend` macro is reminiscent of the set comprehension idiom { ∀ patterns ⊆ S : expr }.
 
-## Usage
+## Basic usage
 
 To start, create a [Leiningen](http://leiningen.org) project and add the following dependency to `project.clj`:
 
 ```clojure
-[comprehend "0.2.1"]
+[comprehend "0.2.2"]
 ```
 
 Next, load Comprehend as follows:
@@ -27,6 +27,8 @@ Creating indexed sets is no different than creating other collections in Clojure
 ```
 
 The functions `cons`, `conj`, `disj`, `contains?`, `get`, `count`, `hash`, `empty`, and `seq` operate on indexed sets as expected. Moreover, `(s k)` = `(get s k)` if `s` is an indexed set, and if `k` is a symbol or keyword then `(k s)` = `(get s k)`.
+
+Use the function `c/indexed-set?` to test if an object is an indexed set.
 
 Indexed sets shine when you want to perform pattern matching on them:
 
@@ -51,7 +53,7 @@ It is also possible to match on patterns in subcollections:
 ;=> (2)
 ```
 
-Like [core.match](https://github.com/clojure/core.match), vector patterns will match only vectors of the same member count but map patterns will also match supermaps:
+Like `[core.match](https://github.com/clojure/core.match)`, vector patterns will match only vectors of the same member count but map patterns will also match supermaps:
 
 ```clojure
 (c/comprehend (c/indexed-set {1 2 3 4})
@@ -60,7 +62,7 @@ Like [core.match](https://github.com/clojure/core.match), vector patterns will m
 ;=> ([1 2] [3 4])
 ```
 
-Similar to [core.match](https://github.com/clojure/core.match), unbound symbols are interpreted as logical variables:
+Similar to `core.match`, unbound symbols are interpreted as logical variables:
 
 ```clojure
 (def bound-symb 1)
@@ -70,7 +72,7 @@ Similar to [core.match](https://github.com/clojure/core.match), unbound symbols 
 ;=> ([1 2])
 ```
 
-Notice that round brackets `()` in patterns are not interpreted as lists, contrary to [core.match](https://github.com/clojure/core.match). There's no need to as Comprehend considers sequential structures interchangeble, and so you can simply use square brackets `[]` to do pattern matching on lists. This has the advantage that functions can be called from within patterns:
+Notice that round brackets `()` in patterns are not interpreted as lists, contrary to `core.match`. There's no need to as Comprehend considers sequential structures interchangeble, and so you can simply use square brackets `[]` to do pattern matching on lists. This has the advantage that functions can be called from within patterns:
 
 ```clojure
 (c/comprehend (c/indexed-set [0 1] [1 2])
@@ -78,6 +80,23 @@ Notice that round brackets `()` in patterns are not interpreted as lists, contra
               x)
 ;=> (1)
 ```
+
+## Updating indexed sets
+
+There's a macro `c/rcomprehend` that is to `c/comprehend` as `reduce` is to `map`. It is useful when updating indexed sets based on existing patterns:
+
+```clojure
+(c/rcomprehend [s (c/indexed-set [1] [2] [3])]
+              [x]
+              (conj s [(- x)]))
+;=> (c/indexed-set [1] [-1] [2] [-2] [3] [-3])
+```
+
+Notice that a let-like syntax is used for the first argument to `c/rcomprehend`. On the first match `s` is bound to the indexed-set containing the elements `[1]`, `[2]`, and `[3]`. For every match an updated indexed set is returned, and this updated result is bound to `s` for the next match (if any).
+
+The let-like syntax can also be used with `c/comprehend`, in which case `s` is bound to the same indexed set for every match.
+
+## Other features
 
 An expression may return `::c/skip` to filter results:
 
@@ -90,7 +109,16 @@ An expression may return `::c/skip` to filter results:
 ;=> (2 4)
 ```
 
-Creating indexes for collections is slow. It is possible to disable indexing on a collection by collection basis:
+The macro `c/auto-comprehend` is used like `c/comprehend` but with the last argument (the result expression) omitted. Instead `c/auto-comprehend` always returns maps of variables-as-keywords to values:
+
+```clojure
+(c/auto-comprehend (c/indexed-set [1 [2 [3]]]
+                                  [10 [20 [30 [40]]]])
+                   [a [b c]])
+;=> ({:a 1 :b 2 :c [3]} {:a 10 :b 20 :c [30 [40]]})
+```
+
+Indexing collections can be slow. That is why Comprehend allows indexing to be disabled on a collection by collection basis:
 
 ```clojure
 (c/comprehend (c/indexed-set [1] ^::c/opaque [2])
@@ -122,6 +150,19 @@ Sets are considered equivalent by `=` iff they index the same information.
 
 (assert (not= (c/indexed-set 1) #{1}))
 ```
+
+Finally, Comprehend comes with a function `fix` and a macro `fixpoint` for computing fixed points. They are useful for closing indexed sets under a rewriting operation. The following example computes the transitive closure of an indexed set:
+
+```clojure
+(c/fixpoint [s (c/indexed-set [1 2] [2 3] [3 4])]
+            (c/rcomprehend [s' s]
+                           [a b]
+                           [b c]
+                           (conj s' [a c])))
+;=> (c/indexed-set [1 2] [2 3] [3 4] [1 3] [2 4] [1 4])
+```
+
+Similarly, `(fix f)` returns a function that iteratively applies `f` to its arguments until a fixed point is found.
 
 ## Further information
 

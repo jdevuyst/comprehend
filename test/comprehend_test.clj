@@ -263,7 +263,9 @@
                      (if (>= x 1000)
                        x
                        (* 2 x)))
-           1024))))
+           1024))
+    (is (= ((c/fix #(min 10 (inc %))) 0)
+           10))))
 
 (deftest README-examples
   (is (= (set (c/indexed-set 1 2 3))
@@ -292,12 +294,29 @@
                        [(dec 1) x]
                        x)
          '(1)))
+  (is (= (set (c/rcomprehend [s (c/indexed-set [1] [3] [5] [7] [9])]
+                             [x]
+                             (conj s [(inc x)])))
+         #{[1] [2] [3] [4] [5] [6] [7] [8] [9] [10]}))
+  (is (= (c/rcomprehend [s (c/indexed-set [1] [2] [3])]
+                        [x]
+                        (conj s [(- x)]))
+         (c/indexed-set [1] [-1] [2] [-2] [3] [-3])))
+  (is (= (c/comprehend [s (c/indexed-set [1] [2])]
+                       [x]
+                       s)
+         (list (c/indexed-set [1] [2])
+               (c/indexed-set [1] [2]))))
   (is (= (set (comprehend (indexed-set 1 2 3 4)
                           x
                           (if (even? x)
                             x
                             ::c/skip)))
          #{2 4}))
+  (is (= (set (c/auto-comprehend (c/indexed-set [1 [2 [3]]] [10 [20 [30 [40]]]])
+                                 [a [b c]]))
+         #{{:a 1 :b 2 :c [3]} {:a 10 :b 20 :c [30 [40]]}}))
+
   (is (= (set (c/comprehend (c/indexed-set [1] ^::c/opaque [2])
                             [x]
                             y
@@ -313,7 +332,18 @@
          '(1)))
   (is (not= (c/indexed-set [1])
             (c/indexed-set ^::c/opaque [1])))
-  (is (not= (c/indexed-set 1) #{1})))
+  (is (not= (c/indexed-set 1) #{1}))
+  (is (= (set (c/rcomprehend [s (c/indexed-set [1 2] [2 3] [3 4])]
+                             [a b]
+                             [b c]
+                             (conj s [a c])))
+         #{[1 2] [2 3] [3 4] [1 3] [2 4]}))
+  (is (= (set (c/fixpoint [s (c/indexed-set [1 2] [2 3] [3 4])]
+                          (c/rcomprehend [s' s]
+                                         [a b]
+                                         [b c]
+                                         (conj s' [a c]))))
+         #{[1 2] [2 3] [3 4] [1 3] [2 4] [1 4]})))
 
 (let [this-ns-name (ns-name *ns*)]
   (defn test-comprehend []
