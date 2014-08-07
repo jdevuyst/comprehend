@@ -209,9 +209,12 @@
                                            (filter (comp not empty? second))
                                            (into {}))
                                       %))
-          strong= #(and (= (.-m %1) (.-m %2))
-                        (= (norm (.-idx %1)) (norm (.-idx %2)))
-                        (= (.-markers %1) (.-markers %2)))]
+          strong= #(and (= (indexed-set? %1)
+                           (indexed-set? %2))
+                        (= %1 %2)
+                        (= (.-m %1) (.-m %2))
+                        (= (.-markers %1) (.-markers %2))
+                        (= (norm (.-idx %1)) (norm (.-idx %2))))]
       (is (not (strong= S (conj S a))))
       (is (strong= S (disj S a)))
       (is (strong= (conj S a) (conj (conj S a) a)))
@@ -223,6 +226,21 @@
       (is (strong= S (conj (disj S b) b)))
       (is (strong= (indexed-set 1 2 [3 4])
                    (unmark (into (mark (indexed-set) :a) '(1 2 [3 4])) :a)))
+      (is (not= (indexed-set 1)
+                (-> (indexed-set 1)
+                    (mark :a))))
+      (is (strong= (-> (indexed-set 1)
+                       (mark :a))
+                   (-> (indexed-set 1)
+                       (mark :a)
+                       (mark :a))))
+      (is (strong= (-> (indexed-set 1)
+                       (conj 2)
+                       (mark :a))
+                   (-> (indexed-set 1)
+                       (mark :a)
+                       (conj 2)
+                       (mark :a))))
       (is (= (comprehend (disj S b)
                          [1 [2 "test" {[[#{:a}]] [x]}] 3]
                          x)
@@ -307,6 +325,48 @@
                        s)
          (list (c/indexed-set [1] [2])
                (c/indexed-set [1] [2]))))
+  (is (= (-> (indexed-set 1)
+             (mark :a :b)
+             (conj 2)
+             (mark :a)
+             (conj 3)
+             (as-> s (comprehend :mark :a s x x))
+             set)
+         #{3}))
+  (is (= (-> (indexed-set 1)
+             (mark :a :b)
+             (conj 2)
+             (mark :a)
+             (conj 3)
+             (as-> s (comprehend :mark :b s x x))
+             set)
+         #{2 3}))
+  (is (= (c/comprehend :mark "marker"
+                       (-> (c/indexed-set [1 2] [2 3])
+                           (mark "marker")
+                           (conj [3 4]))
+                       [a b]
+                       [b c]
+                       [a b c])
+         '([2 3 4])))
+  (let [s (-> (c/indexed-set 1)
+              (mark :a)
+              (conj 2))]
+    (is (= (set (c/comprehend :mark :a
+                              [s' s]
+                              x
+                              s'))
+           #{(mark s :a)})))
+  (is (= (c/comprehend :mark :a
+                       [s (-> (c/indexed-set 1)
+                              (mark :a)
+                              (conj 2))]
+                       x
+                       {x (c/comprehend :mark :a
+                                        (conj s 3)
+                                        y
+                                        y)})
+         [{2 [3]}]))
   (is (= (set (comprehend (indexed-set 1 2 3 4)
                           x
                           (if (even? x)
@@ -330,8 +390,19 @@
                        [[x]]
                        x)
          '(1)))
+  (is (= (c/indexed-set [1])
+         (c/indexed-set [1])))
+  (is (not= (c/indexed-set 1)
+            (mark (c/indexed-set 1) :a)))
   (is (not= (c/indexed-set [1])
             (c/indexed-set ^::c/opaque [1])))
+  (is (= (-> (indexed-set 1)
+             (conj 2)
+             (mark :a))
+         (-> (indexed-set 1)
+             (mark :a)
+             (conj 2)
+             (mark :a))))
   (is (not= (c/indexed-set 1) #{1}))
   (is (= (set (c/rcomprehend [s (c/indexed-set [1 2] [2 3] [3 4])]
                              [a b]

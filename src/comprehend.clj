@@ -22,7 +22,7 @@
   (empty [this] (indexed-set))
   (equiv [this o] (or (identical? this o)
                       (and (indexed-set? o)
-                           (.equiv (.-idx this) (.-idx o))
+                           (.equiv (.-m this) (.-m o))
                            (.equiv (.-markers this) (.-markers o)))))
   (disjoin [this k] (disj* this k))
   (contains [this k] (-> this roots (contains? (-> k hash list))))

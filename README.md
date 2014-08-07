@@ -11,7 +11,7 @@ Indexed sets effectively serve as in-memory databases, but are just as easy to s
 To start, create a [Leiningen](http://leiningen.org) project and add the following dependency to `project.clj`:
 
 ```clojure
-[comprehend "0.2.2"]
+[comprehend "0.3"]
 ```
 
 Next, load Comprehend as follows:
@@ -96,6 +96,52 @@ Notice that a let-like syntax is used for the first argument to `c/rcomprehend`.
 
 The let-like syntax can also be used with `c/comprehend`, in which case `s` is bound to the same indexed set for every match.
 
+## Forward matching
+
+Forward pattern matching refers to pattern matching that only returns results that are new relative to some previous state.
+
+Comprehend comes with a function `c/mark` for naming past states. Consider the following indexed set:
+
+```clojure
+(-> (indexed-set 1)
+    (mark :a :b)
+    (conj 2)
+    (mark :a)
+    (conj 3))
+```
+
+In this set, `:a` marks the state where the indexed set contains `1` and `2` but not `3`. Similarly, `:b` marks the point where the indexed set contained `1` but `2` and `3` had not yet been added.
+
+Pass the keyword `:mark` as the first argument to `c/comprehend` or `c/rcomprehend` to limit results to matches that are new relative to the marker that immediately follows `:mark`:
+
+```clojure
+(c/comprehend :mark "marker"
+              (-> (c/indexed-set [1 2] [2 3])
+                  (mark "marker")
+                  (conj [3 4]))
+              [a b]
+              [b c]
+              [a b c])
+;=> ([2 3 4])
+```
+
+When `:mark` is used in combination with let-syntax, as previously discussed in relation to `c/rcomprehend`, the bound indexed set is marked afresh.
+
+```clojure
+(c/comprehend :mark :a
+              [s (-> (c/indexed-set 1)
+                     (mark :a)
+                     (conj 2))]
+              x
+              {x (c/comprehend :mark :a
+                               (conj s 3)
+                               y
+                               y)})
+;=> ({2 (3)})
+```
+
+Finally, use `c/unmark` to remove markers from an indexed set. Like `c/mark`, it takes an indexed set and a variable number of markers as arguments.
+
 ## Other features
 
 An expression may return `::c/skip` to filter results:
@@ -142,9 +188,20 @@ Think of `^::c/opaque x` as saying that you will not attempt pattern matching on
 ;=> (1)
 ```
 
-Sets are considered equivalent by `=` iff they index the same information.
+Sets are considered equivalent by `=` if and only if they are indexed and marked equivalently.
 
 ```clojure
+(assert (not= (c/indexed-set 1)
+              (mark (c/indexed-set 1) :a)))
+
+(assert (= (-> (indexed-set 1)
+               (conj 2)
+               (mark :a))
+           (-> (indexed-set 1)
+               (mark :a)
+               (conj 2)
+               (mark :a))))
+
 (assert (not= (c/indexed-set [1])
               (c/indexed-set ^::c/opaque [1])))
 
