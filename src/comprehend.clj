@@ -4,12 +4,12 @@
             [clojure.core.logic.pldb :as pldb]
             [clojure.walk :as w]))
 
+(declare indexed-set indexed-set?
+         roots conj* disj* unbound-symbols describe annotate-ungrounded-terms retract-marks comprehend*)
+
 ;;
 ;; PUBLIC API
 ;;
-
-(declare indexed-set indexed-set?
-         roots conj* disj* unbound-symbols describe annotate-ungrounded-terms retract-marks comprehend*)
 
 (deftype Set [m idx markers meta]
   clojure.lang.IHashEq
@@ -105,7 +105,6 @@
 (letfn [(qsymb? [x] (and (= 2 (count x))
                          (= (first x) 'quote)
                          (symbol? (second x))))
-
         (squach [x]
                 (cond (and (coll? x) (not (qsymb? x))) (mapcat squach x)
                       (map? x) (->> x
@@ -258,7 +257,7 @@
                                (reduce lp/bind a#))))))
             (map #(map (.-m ~s-name) %))
             (~f (fn [~s-name [~@explicit-vars]] ~expr)
-                ~(if marker?
+                ~(if marker? ; and [either using rcomprehend or using let syntax] ; TODO optimize further
                    `(mark ~s-name ~marker-name)
                    s-name))))))
 

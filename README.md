@@ -87,8 +87,8 @@ There's a macro `c/rcomprehend` that is to `c/comprehend` as `reduce` is to `map
 
 ```clojure
 (c/rcomprehend [s (c/indexed-set [1] [2] [3])]
-              [x]
-              (conj s [(- x)]))
+               [x]
+               (conj s [(- x)]))
 ;=> (c/indexed-set [1] [-1] [2] [-2] [3] [-3])
 ```
 
@@ -103,10 +103,10 @@ Forward pattern matching refers to pattern matching that only returns results th
 Comprehend comes with a function `c/mark` for naming past states. Consider the following indexed set:
 
 ```clojure
-(-> (indexed-set 1)
-    (mark :a :b)
+(-> (c/indexed-set 1)
+    (c/mark :a :b)
     (conj 2)
-    (mark :a)
+    (c/mark :a)
     (conj 3))
 ```
 
@@ -117,7 +117,7 @@ Pass the keyword `:mark` as the first argument to `c/comprehend` or `c/rcomprehe
 ```clojure
 (c/comprehend :mark "marker"
               (-> (c/indexed-set [1 2] [2 3])
-                  (mark "marker")
+                  (c/mark "marker")
                   (conj [3 4]))
               [a b]
               [b c]
@@ -130,7 +130,7 @@ When `:mark` is used in combination with let-syntax, as previously discussed in 
 ```clojure
 (c/comprehend :mark :a
               [s (-> (c/indexed-set 1)
-                     (mark :a)
+                     (c/mark :a)
                      (conj 2))]
               x
               {x (c/comprehend :mark :a
@@ -147,11 +147,11 @@ Finally, use `c/unmark` to remove markers from an indexed set. Like `c/mark`, it
 An expression may return `::c/skip` to filter results:
 
 ```clojure
-(comprehend (indexed-set 1 2 3 4)
-            x
-            (if (even? x)
-                 x
-                 ::c/skip))
+(c/comprehend (c/indexed-set 1 2 3 4)
+              x
+              (if (even? x)
+                  x
+                  ::c/skip))
 ;=> (2 4)
 ```
 
@@ -192,15 +192,15 @@ Sets are considered equivalent by `=` if and only if they are indexed and marked
 
 ```clojure
 (assert (not= (c/indexed-set 1)
-              (mark (c/indexed-set 1) :a)))
+              (c/mark (c/indexed-set 1) :a)))
 
-(assert (= (-> (indexed-set 1)
+(assert (= (-> (c/indexed-set 1)
                (conj 2)
-               (mark :a))
-           (-> (indexed-set 1)
-               (mark :a)
+               (c/mark :a))
+           (-> (c/indexed-set 1)
+               (c/mark :a)
                (conj 2)
-               (mark :a))))
+               (c/mark :a))))
 
 (assert (not= (c/indexed-set [1])
               (c/indexed-set ^::c/opaque [1])))
@@ -219,15 +219,14 @@ Finally, Comprehend comes with a function `fix` and a macro `fixpoint` for compu
 ;=> (c/indexed-set [1 2] [2 3] [3 4] [1 3] [2 4] [1 4])
 ```
 
-Similarly, `(fix f)` returns a function that iteratively applies `f` to its arguments until a fixed point is found.
+Similarly, `(fix f)` returns a function that iteratively applies `f` to its arguments until a fixed point is found, which it then returns.
 
 ## Further information
 
-Comprehend is powered by [core.logic](https://github.com/clojure/core.logic). I explain the main ideas behind the implementation in a [blog post](http://jdevuyst.blogspot.com/2014/05/comprehend-clojure-pattern-matching.html).
+Comprehend is powered by [core.logic](https://github.com/clojure/core.logic). I explain some of the main ideas behind the implementation in a [blog post](http://jdevuyst.blogspot.com/2014/05/comprehend-clojure-pattern-matching.html).
 
 ## License
 
 Copyright © 2014 Jonas De Vuyst
 
-Distributed under the Eclipse Public License either version 1.0 or (at
-your option) any later version.
+Distributed under the Eclipse Public License either version 1.0 or (at your option) any later version.
