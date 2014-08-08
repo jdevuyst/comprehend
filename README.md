@@ -53,7 +53,7 @@ It is also possible to match on patterns in subcollections:
 ;=> (2)
 ```
 
-Like `[core.match](https://github.com/clojure/core.match)`, vector patterns will match only vectors of the same member count but map patterns will also match supermaps:
+Like [`core.match`](https://github.com/clojure/core.match), vector patterns will match only vectors of the same member count but map patterns will also match supermaps:
 
 ```clojure
 (c/comprehend (c/indexed-set {1 2 3 4})
@@ -144,7 +144,7 @@ Finally, use `c/unmark` to remove markers from an indexed set. Like `c/mark`, it
 
 ## Other features
 
-An expression may return `::c/skip` to filter results:
+A `c/comprehend` expression may return `::c/skip` to filter results:
 
 ```clojure
 (c/comprehend (c/indexed-set 1 2 3 4)
@@ -155,7 +155,7 @@ An expression may return `::c/skip` to filter results:
 ;=> (2 4)
 ```
 
-The macro `c/auto-comprehend` is used like `c/comprehend` but with the last argument (the result expression) omitted. Instead `c/auto-comprehend` always returns maps of variables-as-keywords to values:
+The macro `c/auto-comprehend` is used like `c/comprehend` but with the last argument (the result expression) omitted. Instead `c/auto-comprehend` always returns maps from variables-as-keywords to values:
 
 ```clojure
 (c/auto-comprehend (c/indexed-set [1 [2 [3]]]
