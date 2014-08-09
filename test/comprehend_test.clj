@@ -256,6 +256,11 @@
       (is (= m (meta (conj s (gensym)))))
       (is (= m (meta (disj s (first s)))))
       (is (= m (meta (mark s :a :b :c))))))
+  (testing "up"
+    (is (= (c/comprehend (c/indexed-set [1 [2 [3]]])
+                         [x [y [z]]]
+                         (->> z c/up (mapcat c/up)))
+           '(([2 [3]])))))
   (testing "Other"
     (is (= (-> (indexed-set)
                (mark :a :b :c)

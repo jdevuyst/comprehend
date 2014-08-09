@@ -4,6 +4,9 @@
             [clojure.core.logic.pldb :as pldb]
             [clojure.walk :as w]))
 
+(def ^{:private true :dynamic true} *indexed-set*)
+(def ^{:private true :dynamic true} *breadcrumbs*)
+
 (declare indexed-set indexed-set?
          roots conj* disj* unbound-symbols describe annotate-ungrounded-terms retract-marks comprehend*)
 
@@ -22,6 +25,7 @@
   (empty [this] (indexed-set))
   (equiv [this o] (or (identical? this o)
                       (and (indexed-set? o)
+                           (= (roots this) (roots o))
                            (.equiv (.-m this) (.-m o))
                            (.equiv (.-markers this) (.-markers o)))))
   (disjoin [this k] (disj* this k))
@@ -78,6 +82,14 @@
         (retract-marks s markers)
         (reduce disj (.-markers s) markers)
         (.-meta s)))
+
+; experimental
+(defn up [x]
+  (->> x
+       hash
+       *breadcrumbs*
+       (map first)
+       (map (partial (.-m *indexed-set*)))))
 
 (defn fix [f]
   #(let [v (f %)]
@@ -241,22 +253,29 @@
            ~marker-name ~marker]
        (->> (pldb/with-db
               (.-idx ~s-name)
-              (l/run* [~@explicit-vars q#]
+              (l/run* [breadcrumbs# ~@explicit-vars]
                       (let [~ren-name (memoize #(cond (~explicit-vars %) %
                                                       (and (coll? %)
                                                            (-> % meta ::opaque not)) (l/lvar)
                                                       :else (hash %)))
+                            !crumbs# (atom {})
                             make-goal# (fn [f# & args#]
+                                         (swap! !crumbs# update-in [(last args#)] conj (butlast args#))
                                          (apply f# args#))]
                         (fn [a#]
-                          (->> [~@patterns]
-                               (mapcat (partial describe nil ~ren-name make-goal#))
-                               ~@(if marker
-                                   [`(cons (l/conde ~@(for [pattern patterns]
-                                                        `[(marks-rel ~marker-name (~ren-name ~pattern))])))])
-                               (reduce lp/bind a#))))))
-            (map #(map (.-m ~s-name) %))
-            (~f (fn [~s-name [~@explicit-vars]] ~expr)
+                          (-> (partial describe nil ~ren-name make-goal#)
+                              (mapcat [~@patterns])
+                              ~@(if marker
+                                  [`(conj (l/conde ~@(for [pattern patterns]
+                                                       `[(marks-rel ~marker-name (~ren-name ~pattern))])))])
+                              (concat [(l/== breadcrumbs# @!crumbs#)])
+                              (as-> $# (reduce lp/bind a# $#)))))))
+            (map #(cons (first %)
+                        (map (.-m ~s-name) (rest %))))
+            (~f (fn [~s-name [breadcrumbs# ~@explicit-vars]]
+                  (binding [*indexed-set* ~s-name
+                            *breadcrumbs* breadcrumbs#]
+                    ~expr))
                 ~(if marker? ; and [either using rcomprehend or using let syntax] ; TODO optimize further
                    `(mark ~s-name ~marker-name)
                    s-name))))))
