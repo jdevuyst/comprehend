@@ -4,14 +4,14 @@ A Clojure library for performing pattern matching on indexed sets.
 
 Comprehend contains a data structure for persistent indexed sets and a macro `comprehend` for pattern matching on indexed sets.
 
-Indexed sets effectively serve as in-memory databases, but are just as easy to set up as native Clojure sets. The syntax for the `comprehend` macro is reminiscent of the set comprehension idiom { expr : patterns ⊆ S }.
+Indexed sets effectively serve as in-memory databases, but are just as easy to set up as native Clojure sets. The syntax for the `comprehend` macro is reminiscent of the set comprehension idiom {expr : {pattern1, pattern2, …} ⊆ S}.
 
 ## Basic usage
 
 To start, create a [Leiningen](http://leiningen.org) project and add the following dependency to `project.clj`:
 
 ```clojure
-[comprehend "0.4"]
+[comprehend "0.4.5"]
 ```
 
 Next, load Comprehend as follows:
@@ -23,7 +23,7 @@ Next, load Comprehend as follows:
 Creating indexed sets is no different than creating other collections in Clojure:
 
 ```clojure
-(c/indexed-set 1 2 3) ; indexed counterpart of #{1 2 3}
+(c/indexed-set 1 2 3) ; indexed counterpart of (hash-set 1 2 3)
 ```
 
 The functions `cons`, `conj`, `disj`, `contains?`, `get`, `count`, `hash`, `empty`, and `seq` operate on indexed sets as expected. Moreover, `(s k)` = `(get s k)` if `s` is an indexed set, and if `k` is a symbol or keyword then `(k s)` = `(get s k)`.
@@ -81,24 +81,11 @@ Notice that round brackets `()` in patterns are not interpreted as lists, contra
 ;=> (1)
 ```
 
-## Updating indexed sets
+## Traversing the path from indexed sets to variables
 
-There's a macro `c/rcomprehend` that is to `c/comprehend` as `reduce` is to `map`. It is useful when updating indexed sets based on existing patterns:
+When a complex pattern is successfully matched against an indexed set, it can sometimes be useful to know what collections were found to contain the variables in that pattern.
 
-```clojure
-(c/rcomprehend [s (c/indexed-set [1] [2] [3])]
-               [x]
-               (conj s [(- x)]))
-;=> (c/indexed-set [1] [-1] [2] [-2] [3] [-3])
-```
-
-Notice that a let-like syntax is used for the first argument to `c/rcomprehend`. On the first match `s` is bound to the indexed-set containing the elements `[1]`, `[2]`, and `[3]`. For every match an updated indexed set is returned, and this updated result is bound to `s` for the next match (if any).
-
-The let-like syntax can also be used with `c/comprehend`, in which case `s` is bound to the same indexed set for every match.
-
-Within a result expression the functions `up` and `top` can be used to obtain the collections that were matched as containing a specified pattern.
-
-Use `(c/up x n)` to navigate `n` steps up (or omit `n` to go up one step). Use `(c/top x)` to obtain the toplevel containers that contain `x` (per the matched results).
+Use `(up x)`, `(up x n)`, or `(top x)` within a result expression to obtain the supercollections of a variable `x`.
 
 ```clojure
 (c/comprehend (c/indexed-set {:a 1} {:b 1} {:a 2 :b 2})
@@ -117,9 +104,20 @@ Notice that `c/up` and `c/top` return lists of containers. The following example
 ;=> ((#{2 [:a]} #{3 [[:a]]}))
 ```
 
-Finally, note that `up` and `top` are only guaranteed to work with (sub)patterns that contain variables.
+## Updating indexed sets
 
-The function `up` and `top` are very useful for updating indexed sets in response to matched patterns. More functionality is planned to fascilitate such updates.
+There's a macro `c/rcomprehend` that is to `c/comprehend` as `reduce` is to `map`. It is useful when updating indexed sets based on existing patterns:
+
+```clojure
+(c/rcomprehend [s (c/indexed-set [1] [2] [3])]
+               [x]
+               (conj s [(- x)]))
+;=> (c/indexed-set [1] [-1] [2] [-2] [3] [-3])
+```
+
+Notice that a let-like syntax is used for the first argument to `c/rcomprehend`. On the first match `s` is bound to the indexed-set containing the elements `[1]`, `[2]`, and `[3]`. For every match an updated indexed set is returned, and this updated result is bound to `s` for the next match (if any).
+
+The let-like syntax can also be used with `c/comprehend`, in which case `s` is bound to the same indexed set for every match.
 
 ## Forward matching
 
@@ -244,16 +242,16 @@ Finally, Comprehend comes with a function `fix` and a macro `fixpoint` for compu
 ;=> (c/indexed-set [1 2] [2 3] [3 4] [1 3] [2 4] [1 4])
 ```
 
-Similarly, `(fix f)` returns a function that iteratively applies `f` to its arguments until a fixed point is found, which it then returns.
+Similarly, `(c/fix f)` returns a function that iteratively applies `f` to its arguments until a fixed point is found, which it then returns.
 
 ## Further information
 
 Comprehend is powered by [`core.logic`](https://github.com/clojure/core.logic). I explain some of the main ideas behind the implementation in a [blog post](http://jdevuyst.blogspot.com/2014/05/comprehend-clojure-pattern-matching.html).
 
-Examples:
+More examples:
 
-- [benchmark.clj](https://github.com/jdevuyst/comprehend/blob/master/test/comprehend/benchmark.clj)
-- [theorem_prover.clj](https://github.com/jdevuyst/comprehend/blob/master/test/comprehend/examples/theorem_prover.clj)
+- [Simple benchmark](https://github.com/jdevuyst/comprehend/blob/master/test/comprehend/benchmark.clj)
+- [Theorem prover for propositional logic](https://github.com/jdevuyst/comprehend/blob/master/test/comprehend/examples/theorem_prover.clj)
 
 ## License
 

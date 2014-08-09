@@ -4,11 +4,9 @@
             [clojure.core.logic.pldb :as pldb]
             [clojure.walk :as w]))
 
-(def ^{:private true :dynamic true} *indexed-set*)
-(def ^{:private true :dynamic true} *breadcrumbs*)
-
 (declare indexed-set indexed-set?
-         roots conj* disj* unbound-symbols describe annotate-ungrounded-terms retract-marks comprehend*)
+         roots conj* disj* unbound-symbols describe annotate-ungrounded-terms
+         comprehend* retract-marks up* top*)
 
 ;;
 ;; PUBLIC API
@@ -83,22 +81,15 @@
         (reduce disj (.-markers s) markers)
         (.-meta s)))
 
-(defn up
-  ([x] (->> x
-            hash
-            *breadcrumbs*
-            (map first)
-            (map (partial (.-m *indexed-set*)))
-            distinct))
-  ([x n] (-> (partial mapcat up)
-             (iterate (up x))
-             (nth (dec n)))))
+(defmacro up
+  ([x & optargs] `(->> (up* '~x ~@optargs)
+                       (map first)
+                       (map (partial (.-m *indexed-set*))))))
 
-(defn top [x]
-  (let [ys (up x)]
-    (-> (mapcat top (filter some? ys))
-        (cond-> (some nil? ys) (conj x))
-        distinct)))
+(defmacro top
+  ([x & optargs] `(->> (top* '~x ~@optargs)
+                       (map first)
+                       (map (partial (.-m *indexed-set*))))))
 
 (defn fix [f]
   #(let [v (f %)]
@@ -112,6 +103,9 @@
 ;;
 ;; PRIVATE FUNCTIONS
 ;;
+
+(def ^:dynamic *indexed-set*)
+(def ^:dynamic *breadcrumbs*)
 
 (pldb/db-rel roots-rel ^:index v)
 (pldb/db-rel marks-rel ^:index m ^:index v)
@@ -143,7 +137,7 @@
             (symbols env x))))
 
 (defn describe
-  "Describe is a public function for technical reasons. Do not use directly."
+  "describe is a public function for technical reasons. Do not use directly."
   [markers ren make-rel x]
   (letfn [(f [x]
              (cond (-> x meta ::opaque)
@@ -269,7 +263,11 @@
                                                       :else (hash %)))
                             !crumbs# (atom {})
                             make-goal# (fn [f# & args#]
-                                         (swap! !crumbs# update-in [(last args#)] conj (butlast args#))
+                                         (let [args# (map #(if (l/lvar? %)
+                                                             (or (.-oname %) [% (.-name %)])
+                                                             %)
+                                                          args#)]
+                                           (swap! !crumbs# update-in [(last args#)] conj (butlast args#)))
                                          (apply f# args#))]
                         (fn [a#]
                           (-> (partial describe nil ~ren-name make-goal#)
@@ -299,3 +297,22 @@
               [marks-rel marker x]))
        (reduce (partial apply pldb/db-retraction)
                (.-idx s))))
+
+(defn up*
+  "up* is a public function for technical reasons. Do not use directly."
+  ([x]
+   (->> x
+        *breadcrumbs*
+        (map first)
+        distinct))
+  ([x n] (-> (partial mapcat up*)
+             (iterate (up* x))
+             (nth (dec n)))))
+
+(defn top*
+  "top* is a public function for technical reasons. Do not use directly."
+  [x]
+  (let [ys (up* x)]
+    (-> (mapcat top* (filter some? ys))
+        (cond-> (some nil? ys) (conj x))
+        distinct)))

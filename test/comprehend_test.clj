@@ -259,9 +259,6 @@
   (testing "up/top"
     (is (= (c/comprehend (c/indexed-set [1 [2 [3]]])
                          [x [y [z]]]
-                         (->> z c/up (mapcat c/up)))
-           (c/comprehend (c/indexed-set [1 [2 [3]]])
-                         [x [y [z]]]
                          (c/up z 2))
            '(([2 [3]]))))
     (is (= (c/comprehend (c/indexed-set [1 [2 [3]]])
@@ -289,7 +286,12 @@
                               #{[[x]]}
                               (set (c/top x))))
            #{#{#{2 [:a]} #{3 [[:a]]}}
-             #{#{4 [[[[[:a]]]]]} #{[[[[[[:a]]]]]] 5}}})))
+             #{#{4 [[[[[:a]]]]]} #{[[[[[[:a]]]]]] 5}}}))
+    (is (= (c/comprehend (c/indexed-set [1 2] [1 3])
+                         [x 2]
+                         [y 3]
+                         [(c/up x) (c/up y)])
+           '([([1 2]) ([1 3])]))))
   (testing "Other"
     (is (= (-> (indexed-set)
                (mark :a :b :c)
