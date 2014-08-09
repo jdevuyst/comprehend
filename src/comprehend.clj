@@ -89,15 +89,16 @@
             *breadcrumbs*
             (map first)
             (map (partial (.-m *indexed-set*)))
-            (filter some?)))
+            distinct))
   ([x n] (-> (partial mapcat up)
              (iterate (up x))
              (nth (dec n)))))
 
 (defn top [x]
-  (if-let [ys (-> x up seq)]
-    (mapcat top ys)
-    [x]))
+  (let [ys (up x)]
+    (-> (mapcat top (filter some? ys))
+        (cond-> (some nil? ys) (conj x))
+        distinct)))
 
 (defn fix [f]
   #(let [v (f %)]

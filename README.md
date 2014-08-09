@@ -96,6 +96,29 @@ Notice that a let-like syntax is used for the first argument to `c/rcomprehend`.
 
 The let-like syntax can also be used with `c/comprehend`, in which case `s` is bound to the same indexed set for every match.
 
+Within a result expression the functions `up` and `top` can be used to obtain the collections that were matched as containing a specified pattern.
+
+Use `(c/up x n)` to navigate `n` steps up (or omit `n` to go up one step). Use `(c/top x)` to obtain the toplevel containers that contain `x` (per the matched results).
+
+```clojure
+(c/comprehend (c/indexed-set {:a 1} {:b 1} {:a 2 :b 2})
+              {:a x}
+              (c/up x))
+;=> (({:a 1}) ({:b 2, :a 2}))
+```
+
+Notice that `c/up` and `c/top` return lists of containers. The following example illustrates why a pattern may have more than one matching container.
+
+```clojure
+(c/comprehend (c/indexed-set #{:a 1} #{[:a] 2} #{[[:a]] 3})
+              #{[x]}
+              #{[[x]]}
+              (c/top x))
+;=> ((#{2 [:a]} #{3 [[:a]]}))
+```
+
+Finally, note that `up` and `top` are only guaranteed to work with (sub)patterns that contain variables.
+
 ## Forward matching
 
 Forward pattern matching refers to pattern matching that only returns results that are new relative to some previous state.

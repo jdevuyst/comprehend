@@ -276,7 +276,20 @@
            (c/comprehend (c/indexed-set [1 [2 [3]]])
                          [x [y [z]]]
                          (c/up x))
-           '(([1 [2 [3]]])))))
+           '(([1 [2 [3]]]))))
+    (is (= (c/comprehend (c/indexed-set [1] [[1]] [[[1]]])
+                         [[x]]
+                         [[[x]]]
+                         (c/top x))
+           '(([[1]] [[[1]]]))))
+    (is (= (set (c/comprehend (c/indexed-set #{:a 1} #{[:a] 2} #{[[:a]] 3}
+                                             #{[[[[[:a]]]]] 4} #{[[[[[[:a]]]]]] 5}
+                                             #{[[[[[[[[:a]]]]]]]] 6})
+                              #{[x]}
+                              #{[[x]]}
+                              (set (c/top x))))
+           #{#{#{2 [:a]} #{3 [[:a]]}}
+             #{#{4 [[[[[:a]]]]]} #{[[[[[[:a]]]]]] 5}}})))
   (testing "Other"
     (is (= (-> (indexed-set)
                (mark :a :b :c)
@@ -346,6 +359,15 @@
                        s)
          (list (c/indexed-set [1] [2])
                (c/indexed-set [1] [2]))))
+  (is (= (set (c/comprehend (c/indexed-set {:a 1} {:b 1} {:a 2 :b 2})
+                            {:a x}
+                            (c/up x)))
+         '#{({:a 1}) ({:b 2, :a 2})}))
+  (is (= (c/comprehend (c/indexed-set #{:a 1} #{[:a] 2} #{[[:a]] 3})
+                       #{[x]}
+                       #{[[x]]}
+                       (set (c/top x)))
+         '(#{#{2 [:a]} #{3 [[:a]]}})))
   (is (= (-> (indexed-set 1)
              (mark :a :b)
              (conj 2)
