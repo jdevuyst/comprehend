@@ -11,7 +11,7 @@ Indexed sets effectively serve as in-memory databases, but are just as easy to s
 To start, create a [Leiningen](http://leiningen.org) project and add the following dependency to `project.clj`:
 
 ```clojure
-[comprehend "0.3"]
+[comprehend "0.4"]
 ```
 
 Next, load Comprehend as follows:
@@ -118,6 +118,8 @@ Notice that `c/up` and `c/top` return lists of containers. The following example
 ```
 
 Finally, note that `up` and `top` are only guaranteed to work with (sub)patterns that contain variables.
+
+The function `up` and `top` are very useful for updating indexed sets in response to matched patterns. More functionality is planned to fascilitate such updates.
 
 ## Forward matching
 
