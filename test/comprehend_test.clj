@@ -256,11 +256,27 @@
       (is (= m (meta (conj s (gensym)))))
       (is (= m (meta (disj s (first s)))))
       (is (= m (meta (mark s :a :b :c))))))
-  (testing "up"
+  (testing "up/top"
     (is (= (c/comprehend (c/indexed-set [1 [2 [3]]])
                          [x [y [z]]]
                          (->> z c/up (mapcat c/up)))
-           '(([2 [3]])))))
+           (c/comprehend (c/indexed-set [1 [2 [3]]])
+                         [x [y [z]]]
+                         (c/up z 2))
+           '(([2 [3]]))))
+    (is (= (c/comprehend (c/indexed-set [1 [2 [3]]])
+                         [x [y [z]]]
+                         (c/top z))
+           (c/comprehend (c/indexed-set [1 [2 [3]]])
+                         [x [y [z]]]
+                         (c/top y))
+           (c/comprehend (c/indexed-set [1 [2 [3]]])
+                         [x [y [z]]]
+                         (c/top x))
+           (c/comprehend (c/indexed-set [1 [2 [3]]])
+                         [x [y [z]]]
+                         (c/up x))
+           '(([1 [2 [3]]])))))
   (testing "Other"
     (is (= (-> (indexed-set)
                (mark :a :b :c)

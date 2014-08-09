@@ -83,13 +83,21 @@
         (reduce disj (.-markers s) markers)
         (.-meta s)))
 
-; experimental
-(defn up [x]
-  (->> x
-       hash
-       *breadcrumbs*
-       (map first)
-       (map (partial (.-m *indexed-set*)))))
+(defn up
+  ([x] (->> x
+            hash
+            *breadcrumbs*
+            (map first)
+            (map (partial (.-m *indexed-set*)))
+            (filter some?)))
+  ([x n] (-> (partial mapcat up)
+             (iterate (up x))
+             (nth (dec n)))))
+
+(defn top [x]
+  (if-let [ys (-> x up seq)]
+    (mapcat top ys)
+    [x]))
 
 (defn fix [f]
   #(let [v (f %)]
