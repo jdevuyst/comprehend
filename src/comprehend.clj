@@ -6,7 +6,7 @@
 
 (declare indexed-set indexed-set?
          roots conj* disj* unbound-symbols describe annotate-ungrounded-terms
-         comprehend* retract-marks up* top*)
+         comprehend* retract-marks nav* up* top*)
 
 ;;
 ;; PUBLIC API
@@ -82,14 +82,11 @@
         (.-meta s)))
 
 (defmacro up
-  ([x & optargs] `(->> (up* '~x ~@optargs)
-                       (map first)
-                       (map (partial (.-m *indexed-set*))))))
+  ([x] `(up ~x 1))
+  ([x n] `(nav* up* ~x ~n)))
 
-(defmacro top
-  ([x & optargs] `(->> (top* '~x ~@optargs)
-                       (map first)
-                       (map (partial (.-m *indexed-set*))))))
+(defmacro top [x]
+  `(nav* top* ~x))
 
 (defn fix [f]
   #(let [v (f %)]
@@ -305,7 +302,7 @@
         *breadcrumbs*
         (map first)
         distinct))
-  ([x n] (-> (partial mapcat up*)
+  ([x n] (-> (comp distinct (partial mapcat up*))
              (iterate (up* x))
              (nth (dec n)))))
 
@@ -316,3 +313,14 @@
     (-> (mapcat top* (filter some? ys))
         (cond-> (some nil? ys) (conj x))
         distinct)))
+
+(defmacro nav*
+  "nav* is a public macro for technical reasons. Do not use directly."
+  [f x & optargs]
+  `(with-meta (->> (~f '~x ~@optargs)
+                   (map first)
+                   (map (juxt (partial (.-m *indexed-set*))
+                              identity))
+                   (map (fn [[v# id#]]
+                          (with-meta v# {::breadcrumbs id#}))))
+              {::has-breadcrumbs true}))

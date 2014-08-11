@@ -81,11 +81,11 @@ Notice that round brackets `()` in patterns are not interpreted as lists, contra
 ;=> (1)
 ```
 
-## Traversing the path from indexed sets to variables
+## Navigating from variables in a pattern up to the toplevel elements of an indexed set
 
 When a complex pattern is successfully matched against an indexed set, it can sometimes be useful to know what collections were found to contain the variables in that pattern.
 
-Use `(up x)`, `(up x n)`, or `(top x)` within a result expression to obtain the supercollections of a variable `x`.
+Use `(c/up x)`, `(c/up x n)`, or `(c/top x)` within a result expression to obtain the supercollections of a variable `x`.
 
 ```clojure
 (c/comprehend (c/indexed-set {:a 1} {:b 1} {:a 2 :b 2})
@@ -231,7 +231,7 @@ Sets are considered equivalent by `=` if and only if they are indexed and marked
 (assert (not= (c/indexed-set 1) #{1}))
 ```
 
-Finally, Comprehend comes with a function `fix` and a macro `fixpoint` for computing fixed points. They are useful for closing indexed sets under a rewriting operation. The following example computes the transitive closure of an indexed set:
+Finally, Comprehend comes with a function `c/fix` and a macro `c/fixpoint` for computing fixed points. They are useful for closing indexed sets under a rewriting operation. The following example computes the transitive closure of an indexed set:
 
 ```clojure
 (c/fixpoint [s (c/indexed-set [1 2] [2 3] [3 4])]
