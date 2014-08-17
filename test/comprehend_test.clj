@@ -266,7 +266,7 @@
                          (.value (c/cursor (first (c/up x)))))
            (c/comprehend (c/indexed-set [[1]])
                          [[x]]
-                         (.value (first (.parent-cursors (c/cursor x)))))
+                         (.value (first (.parents-of-cursor (c/cursor x)))))
            '([1])))
     (is (= (c/comprehend (c/indexed-set [[1]])
                          [[x]]

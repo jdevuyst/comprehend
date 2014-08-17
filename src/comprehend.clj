@@ -296,15 +296,16 @@
                (.-idx s))))
 
 (defprotocol ICursor
-  (parent-cursors [this]))
+  (parents-of-cursor [this]))
 
 (deftype Cursor [s crumbs value crumb-id]
   ICursor
-  (parent-cursors [this]
-           (->> crumb-id
-                crumbs
-                (map first)
-                (map #(Cursor. s crumbs ((.-m s) (first %)) %)))))
+  (parents-of-cursor [this]
+                     (->> crumb-id
+                          crumbs
+                          (map first)
+                          (map #(if-let [v ((.-m s) (first %))]
+                                  (Cursor. s crumbs v %))))))
 
 (defmacro cursor [x]
   `(or (-> ~x meta ::cursor)
@@ -315,31 +316,25 @@
 
 (defn up*
   "up* is a public function for technical reasons. Do not use directly."
-  ([x]
-   (->> x
-        *breadcrumbs*
-        (map first)
-        distinct))
-  ([x n] (-> (comp distinct (partial mapcat up*))
-             (iterate (up* x))
-             (nth (dec n)))))
+  [x n]
+  (-> (iterate (partial mapcat parents-of-cursor) [x])
+      (nth n)))
 
 (defn top*
   "top* is a public function for technical reasons. Do not use directly."
   [x]
-  (let [ys (up* x)]
-    (-> (mapcat top* (filter some? ys))
-        (cond-> (some nil? ys) (conj x))
-        distinct)))
+  (let [ys (.parents-of-cursor x)
+        zs (->> ys
+                (filter some?)
+                (mapcat top*))]
+    (if (some nil? ys)
+      (cons x zs)
+      zs)))
 
 (defmacro nav*
   "nav* is a public macro for technical reasons. Do not use directly."
   [f x & optargs]
-  `(with-meta (->> (~f (.-crumb-id (cursor ~x)) ~@optargs)
-                   (map (juxt (comp (partial (.-m *indexed-set*))
-                                    first)
-                              identity))
-                   distinct
-                   (map (fn [[v# id#]]
-                          (with-meta v# {::cursor (Cursor. *indexed-set* *breadcrumbs* v# id#)}))))
-              {::has-breadcrumbs true}))
+  `(->> (~f (cursor ~x) ~@optargs)
+        (map (fn [c#]
+               (with-meta (.-value c#) {::cursor c#})))
+        distinct))
