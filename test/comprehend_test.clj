@@ -256,10 +256,29 @@
       (is (= m (meta (conj s (gensym)))))
       (is (= m (meta (disj s (first s)))))
       (is (= m (meta (mark s :a :b :c))))))
+  (testing "Cursors"
+    (is (= (c/comprehend (c/indexed-set [[1]])
+                         [[x]]
+                         (.value (c/cursor x)))
+           (list 1)))
+    (is (= (c/comprehend (c/indexed-set [[1]])
+                         [[x]]
+                         (.value (c/cursor (first (c/up x)))))
+           (c/comprehend (c/indexed-set [[1]])
+                         [[x]]
+                         (.value (first (.parent-cursors (c/cursor x)))))
+           '([1])))
+    (is (= (c/comprehend (c/indexed-set [[1]])
+                         [[x]]
+                         (.value (c/cursor (first (c/up x)))))
+           (list [1]))))
   (testing "up/top"
     (is (= (c/comprehend (c/indexed-set [1 [2 [3]]])
                          [x [y [z]]]
                          (c/up z 2))
+           (c/comprehend (c/indexed-set [1 [2 [3]]])
+                         [x [y [z]]]
+                         (-> z c/up first c/up))
            '(([2 [3]]))))
     (is (= (c/comprehend (c/indexed-set [1 [2 [3]]])
                          [x [y [z]]]

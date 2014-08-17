@@ -295,6 +295,24 @@
        (reduce (partial apply pldb/db-retraction)
                (.-idx s))))
 
+(defprotocol ICursor
+  (parent-cursors [this]))
+
+(deftype Cursor [s crumbs value crumb-id]
+  ICursor
+  (parent-cursors [this]
+           (->> crumb-id
+                crumbs
+                (map first)
+                (map #(Cursor. s crumbs ((.-m s) (first %)) %)))))
+
+(defmacro cursor [x]
+  `(or (-> ~x meta ::cursor)
+       (do
+         (assert (find *breadcrumbs* '~x)
+                 (str "no breadcrumbs for variable " '~x))
+         (Cursor. *indexed-set* *breadcrumbs* ~x '~x))))
+
 (defn up*
   "up* is a public function for technical reasons. Do not use directly."
   ([x]
@@ -317,10 +335,11 @@
 (defmacro nav*
   "nav* is a public macro for technical reasons. Do not use directly."
   [f x & optargs]
-  `(with-meta (->> (~f '~x ~@optargs)
-                   (map first)
-                   (map (juxt (partial (.-m *indexed-set*))
+  `(with-meta (->> (~f (.-crumb-id (cursor ~x)) ~@optargs)
+                   (map (juxt (comp (partial (.-m *indexed-set*))
+                                    first)
                               identity))
+                   distinct
                    (map (fn [[v# id#]]
-                          (with-meta v# {::breadcrumbs id#}))))
+                          (with-meta v# {::cursor (Cursor. *indexed-set* *breadcrumbs* v# id#)}))))
               {::has-breadcrumbs true}))
