@@ -5,8 +5,8 @@
             [clojure.walk :as w]))
 
 (declare indexed-set indexed-set?
-         comprehend* conj* disj* up* top* nav
-         roots unbound-symbols describe annotate-ungrounded-terms retract-marks)
+         roots unbound-symbols describe annotate-ungrounded-terms retract-marks
+         comprehend* conj* disj* cursor up* top*)
 
 ;;
 ;; PUBLIC API
@@ -51,15 +51,15 @@
   (= Set (type x)))
 
 (defmacro comprehend [& args]
-  `(comprehend* (comp seq
+  (comprehend* &env
+               `(comp seq
                       (partial filter
                                (comp not (partial = ::skip)))
                       #(map (partial %1 %2) %3))
-                ~@args))
+               args))
 
 (defmacro rcomprehend [& args]
-  `(comprehend* reduce
-                ~@args))
+  (comprehend* &env reduce args))
 
 (defmacro auto-comprehend [& args]
   `(comprehend ~@args
@@ -82,11 +82,16 @@
         (.-meta s)))
 
 (defmacro up
-  ([x] `(up ~x 1))
-  ([x n] (nav up* x n)))
+  ([x] `(apply* ~(cursor x) #'up*))
+  ([x n] (let [x' (gensym "up_x__")]
+           `(apply* ~(cursor x)
+                    (fn [~x']
+                      ~(nth (iterate (partial list mapcat `#'up*)
+                                     [x'])
+                            n))))))
 
 (defmacro top [x]
-  (nav top* x))
+  `(apply* ~(cursor x) #'top*))
 
 (defn fix [f]
   #(let [v (f %)]
@@ -130,9 +135,7 @@
     (filter (complement (partial bound? env))
             (symbols env x))))
 
-(defn describe
-  "describe is a public function for technical reasons. Do not use directly."
-  [markers ren make-rel x]
+(defn- describe [markers ren make-rel x]
   (letfn [(f [x]
              (cond (-> x meta ::opaque)
                    nil
@@ -232,11 +235,9 @@
 
 (deftype Scope [crumbs m])
 
-(def ^:dynamic *scope*)
+(def ^{:dynamic true :private true} *scope*)
 
-(defmacro comprehend*
-  "comprehend* is a public macro for technical reasons. Do not use directly."
-  [f & args]
+(defn- comprehend* [env f args]
   (let [marker? (= :mark (first args))
         [marker rdecl] (if marker?
                          [(second args) (drop 2 args)]
@@ -248,7 +249,7 @@
         rdecl (rest rdecl)
         patterns (butlast rdecl)
         expr (last rdecl)
-        explicit-vars (->> patterns (unbound-symbols &env) set)
+        explicit-vars (->> patterns (unbound-symbols env) set)
         patterns (map (partial annotate-ungrounded-terms explicit-vars) patterns)
         marker-name (gensym "marker__")
         ren-name (gensym "ren__")]
@@ -270,7 +271,7 @@
                                            (swap! !crumbs# update-in [(last args#)] conj (butlast args#)))
                                          (apply f# args#))]
                         (fn [a#]
-                          (-> (partial describe nil ~ren-name make-goal#)
+                          (-> (partial #'describe nil ~ren-name make-goal#)
                               (mapcat [~@patterns])
                               ~@(if marker
                                   [`(conj (l/conde ~@(for [pattern patterns]
@@ -299,58 +300,49 @@
 
 (defprotocol ^:private ICursor
   (value-with-cursor [this])
-  (parents-of-cursor [this])
-  (paths [this]))
+  (apply* [this f]))
 
 (defrecord Cursor [value crumb-id]
   ICursor
-  (value-with-cursor [this] (with-meta value {::cursor this}))
-  (parents-of-cursor [this] (->> crumb-id
-                                 ((.-crumbs *scope*))
-                                 (map first)
-                                 (map #(if-let [v ((.-m *scope*) (first %))]
-                                         (Cursor. v %)))))
-  (paths [this] (->> crumb-id
-                     ((.-crumbs *scope*))
-                     (mapcat (fn [[[h n :as hn] & args]]
-                               (if hn
-                                 (let [v ((.-m *scope*) h)
-                                       idx (if args
-                                             (first args)
-                                             v)]
-                                   (->> (.paths (Cursor. v hn))
-                                        (map #(conj % idx))))
-                                 [[value]]))))))
+  (value-with-cursor [this]
+                     (with-meta value {::cursor this}))
+  (apply* [this f]
+          (->> this
+               f
+               distinct
+               (map value-with-cursor)
+               doall)))
 
-(defmacro cursor
-  "cursor is a public macro for technical reasons. Do not use directly."
-  [x]
-  `(or (-> ~x meta ::cursor)
-       (do
-         (assert (contains? (.-crumbs *scope*) '~x)
-                 (str "cannot create a cursor for " '~x))
-         (Cursor. ~x '~x))))
+(defn- cursor [form]
+  `(let [v# ~form]
+     (or (-> v# meta ::cursor)
+         (Cursor. v# '~form))))
 
-(defn up*
-  "up* is a public function for technical reasons. Do not use directly."
-  [x n]
-  (-> (iterate (partial mapcat parents-of-cursor) [x])
-      (nth n)))
+(defn- up* [c]
+  (->> (.-crumb-id c)
+       ((.-crumbs *scope*))
+       (map first)
+       (map #(if-let [v ((.-m *scope*) (first %))]
+               (Cursor. v %)))))
 
-(defn top*
-  "top* is a public function for technical reasons. Do not use directly."
-  [x]
-  (let [ys (.parents-of-cursor x)
-        zs (->> ys
-                (filter some?)
-                (mapcat top*))]
-    (if (some nil? ys)
-      (cons x zs)
-      zs)))
+(defn- top* [x#]
+  (let [ys# (up* x#)
+        zs# (->> ys#
+                 (filter some?)
+                 (mapcat top*))]
+    (if (some nil? ys#)
+      (cons x# zs#)
+      zs#)))
 
-(defn- nav
-  [f x & optargs]
-  `(->> (~f (cursor ~x) ~@optargs)
-        distinct
-        (map value-with-cursor)
-        doall))
+(defn- paths [c]
+  (->> (.-crumb-id c)
+       ((.-crumbs *scope*))
+       (mapcat (fn [[[h n :as hn] & args]]
+                 (if hn
+                   (let [v ((.-m *scope*) h)
+                         idx (if args
+                               (first args)
+                               v)]
+                     (->> (paths (Cursor. v hn))
+                          (map #(conj % idx))))
+                   [[(.-value c)]])))))

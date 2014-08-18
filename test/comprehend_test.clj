@@ -4,6 +4,9 @@
             [comprehend :as c]
             [clojure.walk :as w]))
 
+(defmacro cursor-macro [form]
+  (#'c/cursor form))
+
 (let [A (hash-set 1 2 3)
       B (apply indexed-set A)]
   (defmacro invariance-test [varname expr]
@@ -259,18 +262,18 @@
   (testing "Cursors"
     (is (= (c/comprehend (c/indexed-set [[1]])
                          [[x]]
-                         (.value (c/cursor x)))
+                         (.-value (cursor-macro x)))
            (list 1)))
     (is (= (c/comprehend (c/indexed-set [[1]])
                          [[x]]
-                         (.value (c/cursor (first (c/up x)))))
+                         (.-value (cursor-macro (first (c/up x)))))
            (c/comprehend (c/indexed-set [[1]])
                          [[x]]
-                         (.value (first (.parents-of-cursor (c/cursor x)))))
+                         (.-value (first (#'c/up* (cursor-macro x)))))
            '([1])))
     (is (= (c/comprehend (c/indexed-set [[1]])
                          [[x]]
-                         (.value (c/cursor (first (c/up x)))))
+                         (.-value (cursor-macro (first (c/up x)))))
            (list [1]))))
   (testing "up/top"
     (is (= (c/comprehend (c/indexed-set [1 [2 [3]]])
@@ -313,9 +316,9 @@
            '([([1 2]) ([1 3])]))))
   (testing "paths"
     (is (= (set (c/comprehend (c/indexed-set [1] [[2 1]] [[[1]]])
-                         [[y x]]
-                         [[[x]]]
-                         (set (.paths (c/cursor x)))))
+                              [[y x]]
+                              [[[x]]]
+                              (set (#'c/paths (cursor-macro x)))))
            #{#{'([[2 1]] 0 1) '([[[1]]] 0 0 0)}})))
   (testing "Other"
     (is (= (-> (indexed-set)
