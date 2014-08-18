@@ -6,7 +6,7 @@
 
 (declare indexed-set indexed-set?
          roots conj* disj* unbound-symbols describe annotate-ungrounded-terms
-         comprehend* retract-marks nav* up* top*)
+         comprehend* retract-marks nav up* top*)
 
 ;;
 ;; PUBLIC API
@@ -83,10 +83,10 @@
 
 (defmacro up
   ([x] `(up ~x 1))
-  ([x n] `(nav* up* ~x ~n)))
+  ([x n] `(nav up* ~x ~n)))
 
 (defmacro top [x]
-  `(nav* top* ~x))
+  `(nav top* ~x))
 
 (defn fix [f]
   #(let [v (f %)]
@@ -233,7 +233,9 @@
             (.-markers s)
             (.-meta s)))))
 
-(defmacro comprehend* [f & args]
+(defmacro comprehend*
+  "comprehend* is a public macro for technical reasons. Do not use directly."
+  [f & args]
   (let [marker? (= :mark (first args))
         [marker rdecl] (if marker?
                          [(second args) (drop 2 args)]
@@ -295,12 +297,12 @@
        (reduce (partial apply pldb/db-retraction)
                (.-idx s))))
 
-(defprotocol ICursor
+(defprotocol ^:private ICursor
   (value-with-cursor [this])
   (parents-of-cursor [this])
   (paths [this]))
 
-(defrecord Cursor [s crumbs value crumb-id]
+(defrecord ^:private Cursor [s crumbs value crumb-id]
   ICursor
   (value-with-cursor [this] (with-meta value {::cursor this}))
   (parents-of-cursor [this] (->> crumb-id
@@ -320,12 +322,21 @@
                                         (map #(conj % idx))))
                                  [[value]]))))))
 
-(defmacro cursor [x]
+(defmacro cursor
+  "cursor is a public macro for technical reasons. Do not use directly."
+  [x]
   `(or (-> ~x meta ::cursor)
        (do
          (assert (find *breadcrumbs* '~x)
                  (str "cannot create a cursor for " '~x))
          (Cursor. *indexed-set* *breadcrumbs* ~x '~x))))
+
+(defmacro nav
+  "nav is a public macro for technical reasons. Do not use directly."
+  [f x & optargs]
+  `(->> (~f (cursor ~x) ~@optargs)
+        distinct
+        (map value-with-cursor)))
 
 (defn up*
   "up* is a public function for technical reasons. Do not use directly."
@@ -343,10 +354,3 @@
     (if (some nil? ys)
       (cons x zs)
       zs)))
-
-(defmacro nav*
-  "nav* is a public macro for technical reasons. Do not use directly."
-  [f x & optargs]
-  `(->> (~f (cursor ~x) ~@optargs)
-        distinct
-        (map value-with-cursor)))
