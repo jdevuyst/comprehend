@@ -5,8 +5,8 @@
             [clojure.walk :as w]))
 
 (declare indexed-set indexed-set?
-         roots conj* disj* unbound-symbols describe annotate-ungrounded-terms
-         comprehend* retract-marks nav up* top*)
+         comprehend* conj* disj* up* top*
+         roots unbound-symbols describe annotate-ungrounded-terms retract-marks nav)
 
 ;;
 ;; PUBLIC API
@@ -100,9 +100,6 @@
 ;;
 ;; PRIVATE FUNCTIONS
 ;;
-
-(def ^:dynamic *indexed-set*)
-(def ^:dynamic *breadcrumbs*)
 
 (pldb/db-rel roots-rel ^:index v)
 (pldb/db-rel marks-rel ^:index m ^:index v)
@@ -233,6 +230,10 @@
             (.-markers s)
             (.-meta s)))))
 
+(deftype ^:private Scope [crumbs m])
+
+(def ^:dynamic *scope*)
+
 (defmacro comprehend*
   "comprehend* is a public macro for technical reasons. Do not use directly."
   [f & args]
@@ -279,8 +280,7 @@
             (map #(cons (first %)
                         (map (.-m ~s-name) (rest %))))
             (~f (fn [~s-name [breadcrumbs# ~@explicit-vars]]
-                  (binding [*indexed-set* ~s-name
-                            *breadcrumbs* breadcrumbs#]
+                  (binding [*scope* (Scope. breadcrumbs# (.-m ~s-name))]
                     ~expr))
                 ~(if marker? ; and [either using rcomprehend or using let syntax] ; TODO optimize further
                    `(mark ~s-name ~marker-name)
@@ -302,23 +302,23 @@
   (parents-of-cursor [this])
   (paths [this]))
 
-(defrecord ^:private Cursor [s crumbs value crumb-id]
+(defrecord ^:private Cursor [value crumb-id]
   ICursor
   (value-with-cursor [this] (with-meta value {::cursor this}))
   (parents-of-cursor [this] (->> crumb-id
-                                 crumbs
+                                 ((.-crumbs *scope*))
                                  (map first)
-                                 (map #(if-let [v ((.-m s) (first %))]
-                                         (Cursor. s crumbs v %)))))
+                                 (map #(if-let [v ((.-m *scope*) (first %))]
+                                         (Cursor. v %)))))
   (paths [this] (->> crumb-id
-                     crumbs
+                     ((.-crumbs *scope*))
                      (mapcat (fn [[[h n :as hn] & args]]
                                (if hn
-                                 (let [v ((.-m s) h)
+                                 (let [v ((.-m *scope*) h)
                                        idx (if args
                                              (first args)
                                              v)]
-                                   (->> (.paths (Cursor. s crumbs v hn))
+                                   (->> (.paths (Cursor. v hn))
                                         (map #(conj % idx))))
                                  [[value]]))))))
 
@@ -327,16 +327,17 @@
   [x]
   `(or (-> ~x meta ::cursor)
        (do
-         (assert (find *breadcrumbs* '~x)
+         (assert (contains? (.-crumbs *scope*) '~x)
                  (str "cannot create a cursor for " '~x))
-         (Cursor. *indexed-set* *breadcrumbs* ~x '~x))))
+         (Cursor. ~x '~x))))
 
 (defmacro nav
   "nav is a public macro for technical reasons. Do not use directly."
   [f x & optargs]
   `(->> (~f (cursor ~x) ~@optargs)
         distinct
-        (map value-with-cursor)))
+        (map value-with-cursor)
+        doall))
 
 (defn up*
   "up* is a public function for technical reasons. Do not use directly."
