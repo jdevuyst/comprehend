@@ -5,8 +5,8 @@
             [clojure.walk :as w]))
 
 (declare indexed-set indexed-set?
-         comprehend* conj* disj* up* top*
-         roots unbound-symbols describe annotate-ungrounded-terms retract-marks nav)
+         comprehend* conj* disj* up* top* nav
+         roots unbound-symbols describe annotate-ungrounded-terms retract-marks)
 
 ;;
 ;; PUBLIC API
@@ -83,10 +83,10 @@
 
 (defmacro up
   ([x] `(up ~x 1))
-  ([x n] `(nav up* ~x ~n)))
+  ([x n] (nav up* x n)))
 
 (defmacro top [x]
-  `(nav top* ~x))
+  (nav top* x))
 
 (defn fix [f]
   #(let [v (f %)]
@@ -331,14 +331,6 @@
                  (str "cannot create a cursor for " '~x))
          (Cursor. ~x '~x))))
 
-(defmacro nav
-  "nav is a public macro for technical reasons. Do not use directly."
-  [f x & optargs]
-  `(->> (~f (cursor ~x) ~@optargs)
-        distinct
-        (map value-with-cursor)
-        doall))
-
 (defn up*
   "up* is a public function for technical reasons. Do not use directly."
   [x n]
@@ -355,3 +347,10 @@
     (if (some nil? ys)
       (cons x zs)
       zs)))
+
+(defn- nav
+  [f x & optargs]
+  `(->> (~f (cursor ~x) ~@optargs)
+        distinct
+        (map value-with-cursor)
+        doall))
