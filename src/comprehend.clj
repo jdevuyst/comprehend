@@ -230,7 +230,7 @@
             (.-markers s)
             (.-meta s)))))
 
-(deftype ^:private Scope [crumbs m])
+(deftype Scope [crumbs m])
 
 (def ^:dynamic *scope*)
 
@@ -302,7 +302,7 @@
   (parents-of-cursor [this])
   (paths [this]))
 
-(defrecord ^:private Cursor [value crumb-id]
+(defrecord Cursor [value crumb-id]
   ICursor
   (value-with-cursor [this] (with-meta value {::cursor this}))
   (parents-of-cursor [this] (->> crumb-id
