@@ -296,22 +296,35 @@
                (.-idx s))))
 
 (defprotocol ICursor
-  (parents-of-cursor [this]))
+  (value-with-cursor [this])
+  (parents-of-cursor [this])
+  (paths [this]))
 
-(deftype Cursor [s crumbs value crumb-id]
+(defrecord Cursor [s crumbs value crumb-id]
   ICursor
-  (parents-of-cursor [this]
-                     (->> crumb-id
-                          crumbs
-                          (map first)
-                          (map #(if-let [v ((.-m s) (first %))]
-                                  (Cursor. s crumbs v %))))))
+  (value-with-cursor [this] (with-meta value {::cursor this}))
+  (parents-of-cursor [this] (->> crumb-id
+                                 crumbs
+                                 (map first)
+                                 (map #(if-let [v ((.-m s) (first %))]
+                                         (Cursor. s crumbs v %)))))
+  (paths [this] (->> crumb-id
+                     crumbs
+                     (mapcat (fn [[[h n :as hn] & args]]
+                               (if hn
+                                 (let [v ((.-m s) h)
+                                       idx (if args
+                                             (first args)
+                                             v)]
+                                   (->> (.paths (Cursor. s crumbs v hn))
+                                        (map #(conj % idx))))
+                                 [[value]]))))))
 
 (defmacro cursor [x]
   `(or (-> ~x meta ::cursor)
        (do
          (assert (find *breadcrumbs* '~x)
-                 (str "no breadcrumbs for variable " '~x))
+                 (str "cannot create a cursor for " '~x))
          (Cursor. *indexed-set* *breadcrumbs* ~x '~x))))
 
 (defn up*
@@ -335,6 +348,5 @@
   "nav* is a public macro for technical reasons. Do not use directly."
   [f x & optargs]
   `(->> (~f (cursor ~x) ~@optargs)
-        (map (fn [c#]
-               (with-meta (.-value c#) {::cursor c#})))
-        distinct))
+        distinct
+        (map value-with-cursor)))

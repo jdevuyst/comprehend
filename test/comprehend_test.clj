@@ -311,6 +311,12 @@
                          [y 3]
                          [(c/up x) (c/up y)])
            '([([1 2]) ([1 3])]))))
+  (testing "paths"
+    (is (= (set (c/comprehend (c/indexed-set [1] [[2 1]] [[[1]]])
+                         [[y x]]
+                         [[[x]]]
+                         (set (.paths (c/cursor x)))))
+           #{#{'([[2 1]] 0 1) '([[[1]]] 0 0 0)}})))
   (testing "Other"
     (is (= (-> (indexed-set)
                (mark :a :b :c)
