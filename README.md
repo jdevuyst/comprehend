@@ -81,7 +81,7 @@ Notice that round brackets `()` in patterns are not interpreted as lists, contra
 ;=> (1)
 ```
 
-## Navigating from variables in a pattern up to the toplevel elements of an indexed set
+## Navigating from matched variables to the collections that contain them
 
 When a complex pattern is successfully matched against an indexed set, it can sometimes be useful to know what collections were found to contain the variables in that pattern.
 
