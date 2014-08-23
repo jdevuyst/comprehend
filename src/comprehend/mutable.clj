@@ -49,7 +49,7 @@
           (MutableIndexedSet. !s !log))))
 
 (defn- rate-limit-io
-  ([io] (rate-limit-io io 300))
+  ([io] (rate-limit-io io 250))
   ([io sec] (fn
               ([] (io))
               ([s diff]
