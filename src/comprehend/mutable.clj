@@ -3,7 +3,7 @@
   (:require [comprehend :as c]
             [clojure.edn :as edn]))
 
-(deftype MutableIndexedSet [!s !log]
+(deftype MutableSet [!s !log]
   clojure.lang.IDeref
   (deref [this] @!s))
 
@@ -22,10 +22,14 @@
   db)
 
 (defn mark! [db & markers]
-  (dosync (apply alter (.-!s db) c/mark markers)))
+  (dosync
+    (apply alter (.-!s db) c/mark markers)
+    db))
 
 (defn unmark! [db & markers]
-  (dosync (apply alter (.-!s db) c/unmark markers)))
+  (dosync
+    (apply alter (.-!s db) c/unmark markers)
+    db))
 
 (defn- ref-steal [!ref]
   (as-> @!ref $
@@ -46,7 +50,7 @@
                                         (if-not (empty? diff)
                                           (io s diff))
                                         nil)))))
-          (MutableIndexedSet. !s !log))))
+          (MutableSet. !s !log))))
 
 (defn- rate-limit-io
   ([io] (rate-limit-io io 250))

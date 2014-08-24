@@ -62,6 +62,24 @@
     (is (= @!log [[{6 :removed, 7 :added}
                    #{1 2 3 5 7}]]))))
 
+(deftest other-tests
+  (is (= (-> (cm/mutable-indexed-set)
+             (cm/conj! 1)
+             (cm/conj! 2)
+             (cm/mark! :a :b)
+             (cm/conj! 3)
+             (cm/unmark! :b :c)
+             (cm/disj! 2)
+             (cm/conj! 4)
+             deref)
+         (-> (c/indexed-set)
+             (conj 1)
+             (conj 2)
+             (c/mark :a :b)
+             (conj 3)
+             (c/unmark :b :c)
+             (disj 2)
+             (conj 4)))))
 
 (let [this-ns-name (ns-name *ns*)]
   (defn reload-and-test []
