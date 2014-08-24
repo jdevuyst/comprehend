@@ -42,7 +42,8 @@
 
 (defn- ref-steal [!ref]
   (let [v @!ref]
-    (ref-set !ref (empty v))
+    (when (not= @!ref (empty v))
+      (ref-set !ref (empty v)))
     v))
 
 (defn mutable-indexed-set
