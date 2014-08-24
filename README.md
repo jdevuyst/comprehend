@@ -185,7 +185,7 @@ The namespace `comprehend.mutable` contains a mutable abstraction for indexed se
 
 Behind the scenes mutable indexed sets maintain a ref to a regular (immutable) indexed set. Use the functions `cm/conj!`, `cm/disj!`, `cm/mark!`, and `cm/unmark!` to update mutable indexed sets. Use `deref` (or `@`) to obtain the backing immutable container.
 
-Upon instantiation it is possible to configure mutable sets to load and save data via a custom function. When given no arguments, the function should return a sequence to load into the indexed set. Whenever the mutable indexed set is modified, the function is called with two arguments—the updated immutable indexed set and a change set.
+Upon instantiation it is possible to configure mutable sets to load and save data via a custom function. When given no arguments, the function should return a sequence to load into the indexed set. Whenever the mutable indexed set is modified, the function is called with two arguments—the updated immutable indexed set and a changelog.
 
 ```clojure
 (defn f
@@ -208,13 +208,15 @@ Transactions are supported using Clojure's software transactional memory (STM).
   (cm/conj! db 7)) ; {6 :removed, 7 :added} => #{1 2 3 5 7}
 ```
 
-Moreover, when `db` is modified faster than `f` can handle, changes are coelesced.
+Moreover, changelogs from different transactions are coalesced when `db` is modified faster than `f` can handle.
 
-Building on the above features, `comprehend.mutable` comes with a [flat file datbase](https://en.wikipedia.org/wiki/Flat_file_database) out of the box.
+Building on the above features, `comprehend.mutable` comes with a [flat file database](https://en.wikipedia.org/wiki/Flat_file_database) out of the box. The following code creates a mutable indexed set whose contents are loaded from `"example.edn"`:
 
 ```clojure
 (def db (cm/stored-indexed-set "example.edn"))
 ```
+
+Whenever `conj!` or `disj!` is used on `db`, the new contents are written to the same file. Note that markers and other metadata are not currently serialized to disk.
 
 ## Other features
 

@@ -61,7 +61,10 @@
     ([] (try
           (-> filename slurp edn/read-string)
           (catch java.io.FileNotFoundException x nil)))
-    ([s diff] (->> s seq pr-str (spit filename)))))
+    ([s diff] (let [tempname (str filename " - " (java.util.Date.))]
+                (->> s seq pr-str (spit tempname))
+                (.renameTo (java.io.File. tempname)
+                           (java.io.File. filename))))))
 
 (defn stored-indexed-set [filename]
   (-> filename edn-file-io rate-limit-io mutable-indexed-set))

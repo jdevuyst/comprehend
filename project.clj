@@ -1,4 +1,4 @@
-(defproject comprehend "0.5"
+(defproject comprehend "0.5.1-SNAPSHOT"
   :description "Library for pattern matching and rewriting indexed sets"
   :url "https://github.com/jdevuyst/comprehend"
   :license {:name "Eclipse Public License"
