@@ -13,14 +13,18 @@
     (cm/conj! db 2)
     (cm/disj! db 2)
     (cm/conj! db 3)
+    (cm/conj! db 4)
+    (cm/conj! db 5)
+    (cm/disj! db 4)
     (cm/flush db)
-    (is (= #{1 3}
+    (is (= #{1 3 5}
            (-> @db seq set)
            (-> filename
                cm/stored-indexed-set
                deref
                seq
                set)))
+    (Thread/sleep 2000)
     (.delete file)))
 
 (deftest README-mutable-examples
@@ -33,8 +37,7 @@
   (let [!log (atom [])
         f (fn
             ([] [1 2 3])
-            ([s diff]
-             (swap! !log conj [diff (set (seq s))])))
+            ([s diff] (swap! !log conj [diff (set (seq s))])))
         db (cm/mutable-indexed-set f)]
     (cm/conj! db 4)
     (cm/flush db)

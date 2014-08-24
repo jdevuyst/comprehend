@@ -185,7 +185,7 @@ The namespace `comprehend.mutable` contains a mutable abstraction for indexed se
 
 Behind the scenes mutable indexed sets maintain a ref to a regular (immutable) indexed set. Use the functions `cm/conj!`, `cm/disj!`, `cm/mark!`, and `cm/unmark!` to update mutable indexed sets. Use `deref` (or `@`) to obtain the backing immutable container.
 
-Upon instantiation it is possible to configure mutable sets to load and save data via a custom function. When given no arguments, the function should return a sequence to load into the indexed set. Whenever the mutable indexed set is modified, the function is called with two arguments—the updated immutable indexed set and a changelog.
+Upon instantiation it is possible to configure mutable sets to load and save data via a custom function. When given no arguments, the function should return a sequence to load into the indexed set. Whenever the mutable indexed set is modified, the function is called in a separate thread with two arguments—the updated immutable indexed set and a changelog.
 
 ```clojure
 (defn f

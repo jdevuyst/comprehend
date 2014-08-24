@@ -3,68 +3,68 @@
   (:require [comprehend :as c]
             [clojure.edn :as edn]))
 
-(deftype MutableSet [!s !log !!sema]
+(deftype MutableSet [!s !log !!sema !a]
   clojure.lang.IDeref
   (deref [this] @!s))
 
-(defn flush [db]
-  (when-let [sema @(.-!!sema db)]
-    @sema)
+(defn- alter-contents! [db op keyw v]
+  (dosync
+    (alter (.-!s db) op v)
+    (alter (.-!log db) assoc v keyw)
+    (when-not @(.-!!sema db)
+      (ref-set (.-!!sema db) (promise))))
   db)
 
 (defn conj! [db v]
-  (dosync
-    (when-not (contains? @(.-!s db) v)
-      (when-not @(.-!!sema db)
-        (ref-set (.-!!sema db) (promise)))
-      (alter (.-!log db) assoc v :added)
-      (alter (.-!s db) conj v)))
-  db)
+  (alter-contents! db conj :added v))
 
 (defn disj! [db v]
+  (alter-contents! db disj :removed v))
+
+(defn- alter-markers! [db op markers]
   (dosync
-    (when (contains? @(.-!s db) v)
-      (when-not @(.-!!sema db)
-        (ref-set (.-!!sema db) (promise)))
-      (alter (.-!log db) assoc v :removed)
-      (alter (.-!s db) disj v)))
-  db)
+    (apply alter (.-!s db) op markers)
+    db))
 
 (defn mark! [db & markers]
-  (dosync
-    (apply alter (.-!s db) c/mark markers)
-    db))
+  (alter-markers! db c/mark markers))
 
 (defn unmark! [db & markers]
-  (dosync
-    (apply alter (.-!s db) c/unmark markers)
-    db))
+  (alter-markers! db c/unmark markers))
+
+(defn flush [db]
+  (when-let [!sema @(.-!!sema db)]
+    @!sema)
+  db)
 
 (defn- ref-steal [!ref]
   (let [v @!ref]
-    (when (not= @!ref (empty v))
+    (when (not= v (empty v))
       (ref-set !ref (empty v)))
     v))
 
+(defn- process-logs [db io]
+  (send-off (.-!a db)
+            (fn [_]
+              (let [[s log] (dosync [@(.-!s db)
+                                     (ref-steal (.-!log db))])]
+                (when (seq log)
+                  (io s log)
+                  (when-let [!sema (dosync
+                                     (when (empty? @(.-!log db))
+                                       (ref-steal (.-!!sema db))))]
+                    (deliver !sema nil)))))))
+
 (defn mutable-indexed-set
   ([] (mutable-indexed-set (constantly nil)))
-  ([io] (let [!s (ref (into (c/indexed-set) (io)))
-              !log (ref {})
-              !!sema (ref nil)
-              !a (agent nil)]
-          (add-watch !log
-                     ::writer
-                     (fn [k !log old-state new-state]
-                       (send-off !a (fn [a-val]
-                                      (let [[s diff sema]
-                                            (dosync [@!s (ref-steal !log) (ref-steal !!sema)])]
-                                        (when-not (empty? diff)
-                                          (io s diff))
-                                        (when sema
-                                          (deliver sema nil)))))))
-          (MutableSet. !s
-                       !log
-                       !!sema))))
+  ([io] (let [db (MutableSet. (ref (into (c/indexed-set) (io)))
+                              (ref {})
+                              (ref nil)
+                              (agent nil))]
+          (add-watch (.-!log db)
+                     ::io
+                     (fn [& args] (process-logs db io)))
+          db)))
 
 (defn- rate-limit-io
   ([io] (rate-limit-io io 250))
