@@ -24,7 +24,6 @@
                deref
                seq
                set)))
-    (Thread/sleep 2000)
     (.delete file)))
 
 (deftest README-mutable-examples
