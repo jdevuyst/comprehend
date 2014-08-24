@@ -1,22 +1,31 @@
 (ns comprehend.mutable
-  (:refer-clojure :exclude [conj! disj!])
+  (:refer-clojure :exclude [flush conj! disj!])
   (:require [comprehend :as c]
             [clojure.edn :as edn]))
 
-(deftype MutableSet [!s !log]
+(deftype MutableSet [!s !log !!sema]
   clojure.lang.IDeref
   (deref [this] @!s))
 
+(defn flush [db]
+  (when-let [sema @(.-!!sema db)]
+    @sema)
+  db)
+
 (defn conj! [db v]
   (dosync
-    (when-not (contains? (deref (.-!s db)) v)
+    (when-not (contains? @(.-!s db) v)
+      (when-not @(.-!!sema db)
+        (ref-set (.-!!sema db) (promise)))
       (alter (.-!log db) assoc v :added)
       (alter (.-!s db) conj v)))
   db)
 
 (defn disj! [db v]
   (dosync
-    (when (contains? (deref (.-!s db)) v)
+    (when (contains? @(.-!s db) v)
+      (when-not @(.-!!sema db)
+        (ref-set (.-!!sema db) (promise)))
       (alter (.-!log db) assoc v :removed)
       (alter (.-!s db) disj v)))
   db)
@@ -32,25 +41,29 @@
     db))
 
 (defn- ref-steal [!ref]
-  (as-> @!ref $
-        (when-not (empty? $)
-          (ref-set !ref (empty $))
-          $)))
+  (let [v @!ref]
+    (ref-set !ref (empty v))
+    v))
 
 (defn mutable-indexed-set
   ([] (mutable-indexed-set (constantly nil)))
   ([io] (let [!s (ref (into (c/indexed-set) (io)))
               !log (ref {})
+              !!sema (ref nil)
               !a (agent nil)]
           (add-watch !log
                      ::writer
                      (fn [k !log old-state new-state]
                        (send-off !a (fn [a-val]
-                                      (let [[s diff] (dosync [@!s (ref-steal !log)])]
-                                        (if-not (empty? diff)
+                                      (let [[s diff sema]
+                                            (dosync [@!s (ref-steal !log) (ref-steal !!sema)])]
+                                        (when-not (empty? diff)
                                           (io s diff))
-                                        nil)))))
-          (MutableSet. !s !log))))
+                                        (when sema
+                                          (deliver sema nil)))))))
+          (MutableSet. !s
+                       !log
+                       !!sema))))
 
 (defn- rate-limit-io
   ([io] (rate-limit-io io 250))

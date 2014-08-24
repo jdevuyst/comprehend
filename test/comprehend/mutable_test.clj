@@ -5,13 +5,6 @@
 
 (def ^:private !!sema (atom (promise)))
 
-(defn- unwait []
-  (deliver @!!sema nil))
-
-(defn wait []
-  (deref (deref !!sema))
-  (reset! !!sema (promise)))
-
 (deftest flat-file-database-tests
   (let [file (java.io.File/createTempFile "example" "edn")
         filename (str file)
@@ -20,7 +13,7 @@
     (cm/conj! db 2)
     (cm/disj! db 2)
     (cm/conj! db 3)
-    (Thread/sleep 500)
+    (cm/flush db)
     (is (= #{1 3}
            (-> @db seq set)
            (-> filename
@@ -41,15 +34,14 @@
         f (fn
             ([] [1 2 3])
             ([s diff]
-             (swap! !log conj [diff (set (seq s))])
-             (unwait)))
+             (swap! !log conj [diff (set (seq s))])))
         db (cm/mutable-indexed-set f)]
     (cm/conj! db 4)
-    (wait)
+    (cm/flush db)
     (cm/disj! db 4)
-    (wait)
+    (cm/flush db)
     (cm/conj! db 5)
-    (wait)
+    (cm/flush db)
     (is (= @!log [[{4 :added} #{1 2 3 4}]
                   [{4 :removed} #{1 2 3}]
                   [{5 :added} #{1 2 3 5}]]))
@@ -58,7 +50,7 @@
       (cm/conj! db 6)
       (cm/disj! db 6)
       (cm/conj! db 7))
-    (wait)
+    (cm/flush db)
     (is (= @!log [[{6 :removed, 7 :added}
                    #{1 2 3 5 7}]]))))
 
