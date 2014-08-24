@@ -3,7 +3,7 @@
   (:require [comprehend :as c]
             [clojure.edn :as edn]))
 
-(deftype MutableSet [!s !log !semas a]
+(deftype MutableSet [!s !log a]
   clojure.lang.IDeref
   (deref [this] @!s))
 
@@ -30,11 +30,12 @@
 (defn unmark! [db & markers]
   (alter-markers! db c/unmark markers))
 
+(defn- db-agent-send [db f]
+  (send-off (.-a db) #(do (f db %) %)))
+
 (defn flush [db]
   (let [sema (promise)]
-    (send-off (.-a db) (fn [io]
-                         (deliver sema nil)
-                         io))
+    (db-agent-send db (fn [db io] (deliver sema nil)))
     @sema)
   db)
 
@@ -44,25 +45,21 @@
       (ref-set !ref (empty v)))
     v))
 
-(defn- process-logs [db]
-  (send-off (.-a db)
-            (fn [io]
-              (let [[s log old-semas] (dosync [@(.-!s db)
-                                               (ref-steal (.-!log db))
-                                               @(.-!semas db)])]
-                (when (seq log)
-                  (io s log))
-                io))))
+(defn- process-logs [db io]
+  (let [[s log] (dosync [@(.-!s db)
+                         (ref-steal (.-!log db))])]
+    (when (seq log)
+      (io s log))
+    io))
 
 (defn mutable-indexed-set
   ([] (mutable-indexed-set (constantly nil)))
   ([io] (let [db (MutableSet. (ref (into (c/indexed-set) (io)))
                               (ref {})
-                              (ref #{})
                               (agent io))]
           (add-watch (.-!log db)
-                     ::io
-                     (fn [& args] (process-logs db)))
+                     ::log-agent
+                     (fn [& args] (db-agent-send db process-logs)))
           db)))
 
 (defn- rate-limit-io
