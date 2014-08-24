@@ -3,16 +3,14 @@
   (:require [comprehend :as c]
             [clojure.edn :as edn]))
 
-(deftype MutableSet [!s !log !!sema !a]
+(deftype MutableSet [!s !log !semas a]
   clojure.lang.IDeref
   (deref [this] @!s))
 
 (defn- alter-contents! [db op keyw v]
   (dosync
     (alter (.-!s db) op v)
-    (alter (.-!log db) assoc v keyw)
-    (when-not @(.-!!sema db)
-      (ref-set (.-!!sema db) (promise))))
+    (alter (.-!log db) assoc v keyw))
   db)
 
 (defn conj! [db v]
@@ -33,8 +31,11 @@
   (alter-markers! db c/unmark markers))
 
 (defn flush [db]
-  (when-let [!sema @(.-!!sema db)]
-    @!sema)
+  (let [sema (promise)]
+    (send-off (.-a db) (fn [io]
+                         (deliver sema nil)
+                         io))
+    @sema)
   db)
 
 (defn- ref-steal [!ref]
@@ -43,27 +44,25 @@
       (ref-set !ref (empty v)))
     v))
 
-(defn- process-logs [db io]
-  (send-off (.-!a db)
-            (fn [_]
-              (let [[s log] (dosync [@(.-!s db)
-                                     (ref-steal (.-!log db))])]
+(defn- process-logs [db]
+  (send-off (.-a db)
+            (fn [io]
+              (let [[s log old-semas] (dosync [@(.-!s db)
+                                               (ref-steal (.-!log db))
+                                               @(.-!semas db)])]
                 (when (seq log)
-                  (io s log)
-                  (when-let [!sema (dosync
-                                     (when (empty? @(.-!log db))
-                                       (ref-steal (.-!!sema db))))]
-                    (deliver !sema nil)))))))
+                  (io s log))
+                io))))
 
 (defn mutable-indexed-set
   ([] (mutable-indexed-set (constantly nil)))
   ([io] (let [db (MutableSet. (ref (into (c/indexed-set) (io)))
                               (ref {})
-                              (ref nil)
-                              (agent nil))]
+                              (ref #{})
+                              (agent io))]
           (add-watch (.-!log db)
                      ::io
-                     (fn [& args] (process-logs db io)))
+                     (fn [& args] (process-logs db)))
           db)))
 
 (defn- rate-limit-io
