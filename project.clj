@@ -1,5 +1,5 @@
 (defproject comprehend "0.5.1-SNAPSHOT"
-  :description "Library for pattern matching and rewriting indexed sets"
+  :description "In-memory database modeled on sets, not tables. Comprehend supports pattern matching, forward matching, rewriting, and transactional storage."
   :url "https://github.com/jdevuyst/comprehend"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}

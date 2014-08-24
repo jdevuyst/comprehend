@@ -1,17 +1,19 @@
 # Comprehend
 
-A Clojure library for performing pattern matching on indexed sets.
+Clojure in-memory database modeled on sets, not tables. Comprehend supports pattern matching, forward matching, rewriting, and transactional storage.
 
-Comprehend contains a data structure for persistent indexed sets and a macro `comprehend` for pattern matching on indexed sets.
+Comprehend contains a data structure for immutable indexed sets and a macro `comprehend` for pattern matching on such sets. It also comes with features that make it easy to update indexed sets based on pre-existing patterns.
 
 Indexed sets effectively serve as in-memory databases, but are just as easy to set up as native Clojure sets. The syntax for the `comprehend` macro is reminiscent of the set comprehension idiom {expr : {pattern1, pattern2, …} ⊆ S}.
+
+Comprehend also comes with a mutable abstraction for indexed sets. This abstraction can be used as a transactional flat-file database.
 
 ## Basic usage
 
 To start, create a [Leiningen](http://leiningen.org) project and add the following dependency to `project.clj`:
 
 ```clojure
-[comprehend "0.5"]
+[comprehend "0.5.1"]
 ```
 
 Next, load Comprehend as follows:
@@ -81,11 +83,11 @@ Notice that round brackets `()` in patterns are not interpreted as lists, contra
 ;=> (1)
 ```
 
-## Navigating matched collections
+## Using patterns to navigate nested structures
 
-When a complex pattern is successfully matched against an indexed set, it can sometimes be useful to know what collections were found to contain the variables in that pattern.
+When a complex pattern matches a nested structure, it can sometimes be useful to navigate from the atomic variables to the collections that contain them.
 
-Use `(c/up x)`, `(c/up x n)`, or `(c/top x)` within a result expression to obtain the collections that were matched as containing the variable `x`.
+Use `c/up` or `c/top` within a result expression to obtain the collections that were matched as containing the variable `x`.
 
 ```clojure
 (c/comprehend (c/indexed-set {:a 1} {:b 1} {:a 2 :b 2})
@@ -102,6 +104,13 @@ Notice that `c/up` and `c/top` return lists of containers. The following example
               #{[[x]]}
               (c/top x))
 ;=> ((#{2 [:a]} #{3 [[:a]]}))
+```
+
+It's also possible to apply `c/up` and `c/top` to a previous result of `c/up`. Additionally, `c/up` takes an optional second argument `n` for navigating upwards `n` steps. As such,
+
+```clojure
+(assert (= (c/up x 3)
+           (mapcat #(c/up %) (c/up 2))))
 ```
 
 ## Updating indexed sets
@@ -199,7 +208,7 @@ Upon instantiation it is possible to configure mutable sets to load and save dat
 (cm/conj! db 5) ; {5 :added} => #{1 2 3 5}
 ```
 
-Transactions are supported using Clojure's software transactional memory (STM).
+Transactions are supported using Clojure's software transactional memory (STM):
 
 ```clojure
 (dosync

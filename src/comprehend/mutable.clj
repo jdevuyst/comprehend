@@ -7,6 +7,9 @@
   clojure.lang.IDeref
   (deref [this] @!s))
 
+(defn mutable-indexed-set? [x]
+  (= MutableSet (type x)))
+
 (defn- alter-contents! [db op keyw v]
   (dosync
     (alter (.-!s db) op v)

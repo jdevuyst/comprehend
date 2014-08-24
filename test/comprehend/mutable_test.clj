@@ -57,6 +57,9 @@
                    #{1 2 3 5 7}]]))))
 
 (deftest other-tests
+  (is (cm/mutable-indexed-set? (cm/mutable-indexed-set)))
+  (is (not (cm/mutable-indexed-set? (c/indexed-set))))
+  (is (not (c/indexed-set? (cm/mutable-indexed-set))))
   (is (= (-> (cm/mutable-indexed-set)
              (cm/conj! 1)
              (cm/conj! 2)
