@@ -1,5 +1,10 @@
 # Comprehend
 
+> This branch contains an in-progress rewrite of Comprehend. The rewritten version no longer uses the [`core.logic`](https://github.com/clojure/core.logic) unifier, nor its `PLDB` database. These have been replaced by a custom unifier and by laizily loaded indices with swappable caches. The aim of the rewrite is to improve performance and memory use.
+> Presently the core functionality has been rewritten in terms of the new engine. Markers and cursors have not yet been ported. The new engine currently lacks several obvious optimizations, but preliminary tests already suggest a nice performance boost.
+> The syntax and semantics of both implementations are expected to be roughly the same. The behavior of minor features (most notably `::c/opaque`) is subject to change. Beware that the documentation below has not yet been updated to reflect these changes.
+> See the [pldb-impl branch](https://github.com/jdevuyst/comprehend/tree/pldb-impl) for the (stable) `core.logic` based implementation of Comprehend.
+
 Clojure in-memory database modeled on sets, not tables. Comprehend supports pattern matching, forward matching, rewriting, and transactional storage.
 
 Comprehend contains a data structure for immutable indexed sets and a macro `comprehend` for pattern matching on such sets. It also comes with features that make it easy to update indexed sets based on pre-existing patterns.
@@ -12,9 +17,7 @@ Comprehend also comes with a mutable abstraction for indexed sets. This abstract
 
 To start, create a [Leiningen](http://leiningen.org) project and add the following dependency to `project.clj`:
 
-```clojure
-[comprehend "0.5.1"]
-```
+![Clojars Project](http://clojars.org/comprehend/latest-version.svg)
 
 Next, load Comprehend as follows:
 
@@ -32,15 +35,15 @@ The functions `cons`, `conj`, `disj`, `contains?`, `get`, `count`, `hash`, `empt
 
 Use the function `c/indexed-set?` to test if an object is an indexed set.
 
-Indexed sets shine when you want to perform pattern matching on them:
+Indexed sets shine when performing pattern matching:
 
 ```clojure
 (def s (c/indexed-set [:person 1] [:person 2] [:person 3]
                       [:parent-of 1 2] [:parent-of 2 3] [:parent-of 3 4]))
 (c/comprehend s
-              [:parent-of a b]
-              [:parent-of b c]
-              [:grandparent-of a c])
+              [:parent-of a b] ; pattern 1
+              [:parent-of b c] ; pattern 2
+              [:grandparent-of a c]) ; result expression
 ;=> ([:grandparent-of 1 3] [:grandparent-of 2 4])
 ```
 
