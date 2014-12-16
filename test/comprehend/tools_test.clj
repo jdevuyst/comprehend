@@ -8,13 +8,13 @@
   (ctools/with-cache-atom
     (atom (ctools/soft-cache))
 
-    (testing "reverse-map"
-      (is (= (->> (reverse-map {1 2 3 4 5 0 6 0})
-                  (map (fn [[k v]] [k (set v)]))
-                  (into {}))
-             {2 #{1}
-              4 #{3}
-              0 #{5 6}})))
+    ; (testing "reverse-map"
+    ;   (is (= (->> (reverse-map {1 2 3 4 5 0 6 0})
+    ;               (map (fn [[k v]] [k (set v)]))
+    ;               (into {}))
+    ;          {2 #{1}
+    ;           4 #{3}
+    ;           0 #{5 6}})))
     (testing "fixpoints"
       (is (= (fixpoint [x 1]
                               (if (>= x 1000)

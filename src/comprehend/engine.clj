@@ -116,34 +116,13 @@
    :post [(every? constraint-triple? %)]}
   (mapcat unify l* l))
 
-(defn unify-map-vals [m* m]
-  {:pre [(map? m*)
-         (map? m)
-         (grounded? m)]
-   :post [(every? constraint-triple? %)]}
-  (mapcat (fn [[k* v*]]
-            [[:cont k* [#(unify v* (m %))]]
-             [:dom k* (keys m)]])
-          m*))
-
-(defn unify-map-keys [m* m]
-  {:pre [(map? m*)
-         (map? m)
-         (grounded? m)]
-   :post [(every? constraint-triple? %)]}
-  (let [!rm (delay (ctools/memoized-reverse-map m))]
-    (mapcat (fn [[k* v*]]
-              [[:cont v* [#(unify #{k*} (@!rm %))]]
-               [:dom v* (vals m)]])
-            m*)))
-
 (defn unify-maps [m* m]
   {:pre [(map? m*)
          (map? m)
          (grounded? m)]
    :post [(every? constraint-triple? %)]}
-  (concat (unify-map-vals m* m)
-          (unify-map-keys m* m)))
+  (map (fn [kv] [:dom kv (seq m)])
+       (seq m*)))
 
 (defn unify [x* x]
   {:pre [(grounded? x)]
@@ -205,10 +184,11 @@
 
   (defn extract-contradictory-literals [t x dom]
     (when (and (= :dom t)
-               (grounded? x))
-      (let [s (if (set? dom) dom (set dom))]
+               (-> x coll? not)
+               (-> x varname not))
+      (let [s (ctools/as-set dom)]
         (if (contains? s x)
-          [[t x s]]
+          []
           [[:val bottom true] [:val bottom false]])))))
 
 (declare find-models)
@@ -308,13 +288,13 @@
              (reduce (fn [[k1 dom1 :as kv1] [k2 dom2 :as kv2]]
                        (if (or (> (count dom1) (count dom2))
                                (nil? kv1))
-                         (if (= (count dom2) 2)
-                           (reduced kv2)
-                           kv2)
+                         (cond-> kv2
+                                 (= (count dom2) 2) reduced)
                          kv1))
                      nil))
         triples (map-to-triples m)]
     (when kv
+      ;(println :quantify1 k :over dom :where (:val m))
       (map (fn [v]
              (concat triples
                      [[:dom k #{v}]]))

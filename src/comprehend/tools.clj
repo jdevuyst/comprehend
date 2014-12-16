@@ -81,11 +81,11 @@
         s1 s1
         :else s2))
 
-(defn reverse-map [m]
-  {:pre [(map? m)]}
-  (reduce (fn [idx [k v]]
-            (update-in idx [v] conj k))
-          {}
-          m))
+; (defn reverse-map [m]
+;   {:pre [(map? m)]}
+;   (reduce (fn [idx [k v]]
+;             (update-in idx [v] conj k))
+;           {}
+;           m))
 
-(def memoized-reverse-map (memoize reverse-map))
+; (def memoized-reverse-map (memoize reverse-map))

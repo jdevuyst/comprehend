@@ -1,8 +1,12 @@
 # Comprehend
 
+*WARNING*
 > This branch contains an in-progress rewrite of Comprehend. The rewritten version no longer uses the [`core.logic`](https://github.com/clojure/core.logic) unifier, nor its `PLDB` database. These have been replaced by a custom unifier and by laizily loaded indices with swappable caches. The aim of the rewrite is to improve performance and memory use.
+>
 > Presently the core functionality has been rewritten in terms of the new engine. Markers and cursors have not yet been ported. The new engine currently lacks several obvious optimizations, but preliminary tests already suggest a nice performance boost.
+>
 > The syntax and semantics of both implementations are expected to be roughly the same. The behavior of minor features (most notably `::c/opaque`) is subject to change. Beware that the documentation below has not yet been updated to reflect these changes.
+>
 > See the [pldb-impl branch](https://github.com/jdevuyst/comprehend/tree/pldb-impl) for the (stable) `core.logic` based implementation of Comprehend.
 
 Clojure in-memory database modeled on sets, not tables. Comprehend supports pattern matching, forward matching, rewriting, and transactional storage.

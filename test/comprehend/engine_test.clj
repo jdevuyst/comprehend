@@ -76,21 +76,12 @@
         (is (= (set (unify [1 2] [2 1]))
                #{[:dom 2 #{1}] [:dom 1 #{2}]})))
 
-      (testing "unify-map-vals"
-        (is (= (->> (unify-map-vals {1 x 3 y} {1 2 3 4})
-                    (filter (fn [[x y z]] (= x :cont)))
-                    (t-transform materialize-grounded-continuations)
+      (testing "unify-maps"
+        (is (= (->> (unify-maps {1 x 3 y} {1 2 3 4})
+                    (map (fn [[t x dom]] [t x (set dom)]))
                     set)
-               #{[:dom x #{2}]
-                 [:dom y #{4}]})))
-
-      (testing "unify-map-keys"
-        (is (= (->> (unify-map-keys {x 2 y 4} {1 2 3 4})
-                    (filter (fn [[x y z]] (= x :cont)))
-                    (t-transform materialize-grounded-continuations)
-                    set)
-               #{[:dom x '(1)]
-                 [:dom y '(3)]})))
+               #{[:dom [1 x] #{[1 2] [3 4]}]
+                 [:dom [3 y] #{[1 2] [3 4]}]})))
 
       (testing "grounded :cont -> :dom"
         (is (= (->> (list [:cont [x] [identity]]
@@ -102,10 +93,10 @@
                      [:dom :k #{1 2 3}]))))
 
       (testing "mixed"
-        (is (= (set (unify [x y] [2 1]))
-               (->> (unify-map-vals {0 [[x y]]} {0 [[2 1]]})
-                    (filter (fn [[x y z]] (= x :cont)))
-                    (t-transform materialize-grounded-continuations)
+        (is (= (-> (unify [x y] [2 1])
+                   set
+                   (conj [:dom 0 #{0}]))
+               (->> (unify-maps {0 [[x y]]} {0 [[2 1]]})
                     (t-transform decompose-dom-terms)
                     set))))
 
@@ -179,10 +170,10 @@
                             (map :val)
                             (map #(get % x))
                             set))))
-        (is (-> {:dom {x #{2}
-                       y #{4}}}
-                quantify1
-                nil?)))
+        (is (= (-> {:dom {x #{2}
+                          y #{4}}}
+                   quantify1)
+               nil)))
 
       (testing "develop-all"
         (is (= (->> (list [:dom [x {y [x z]}] #{[1 {2 [1 3] :a :b}]}]
@@ -202,7 +193,14 @@
                             #{[1 2] [2 1] [3 4] [4 5] [5 3] [6 6]})
                #{{x 1 y 2}
                  {x 2 y 1}
-                 {x 6 y 6}})))
+                 {x 6 y 6}}))
+        (is (= (find-models #{{x #{y} y #{z}}}
+                            #{{1 #{2 4}
+                               2 #{5 6}
+                               3 #{7 8}
+                               9 #{0}}})
+               #{{x 1 y 2 z 5}
+                 {x 1 y 2 z 6}})))
 
       (testing "match patterns in a set"
         (is (= (set (match-in [:a x y] #{[:a 1 2] [:a 2 3] [:b 3 4]}))
