@@ -147,27 +147,20 @@
 ; OPERATIONS ON SEQUENCES OF CONSTRAINT PAIRS
 ;
 
-(defn t-transform [f constraints]
-  {:pre [(fn? f)
-         (constraint-coll? constraints)]
-   :post [(constraint-coll? %)]}
-  (mapcat (fn [[x* x :as v]]
-            (or (f x* x)
-                [v]))
-          constraints))
-
-(defn decompose-dom-terms [x* dom]
+(defn decompose-dom-terms [[x* dom :as constraint]]
   {:post [(constraint-coll? %)]}
-  (when (and (= 1 (count dom))
+  (if (and (= 1 (count dom))
              (not (varname x*)))
-    (unify x* (first dom))))
+    (unify x* (first dom))
+    [constraint]))
 
-(defn extract-contradictory-literals [x dom]
-  (when (and (-> x coll? not)
-             (-> x varname not))
-    (if (contains? (ctools/as-set dom) x)
+(defn extract-contradictory-literals [[x* dom :as constraint]]
+  (if (and (-> x* coll? not)
+             (-> x* varname not))
+    (if (contains? (ctools/as-set dom) x*)
       []
-      [falsum])))
+      [falsum])
+    [constraint]))
 
 (declare find-models)
 
@@ -176,12 +169,12 @@
                     (set/index (find-models x* dom)
                                ks))))
 
-(defn simplify-domains [x* dom]
+(defn simplify-domains [[x* dom :as constraint]]
   (let [{:keys [query const-map]} (generalize x*)]
     (assert query)
     (assert (map? const-map))
     (cond (varname query)
-          nil ; merely need to test for consistency
+          [constraint]
 
           (not= x* query)
           [[x* (as-> (find-and-index-models query
@@ -192,7 +185,7 @@
                      (set $))]]
 
           :else
-          nil)))
+          [constraint])))
 
 ;
 ; CONSTRAINT MAPS
@@ -218,9 +211,9 @@
   {:pre [(constraint-coll? constraints)]
    :post [(constraint-map? %)]}
   (->> constraints
-       (t-transform decompose-dom-terms)
-       (t-transform extract-contradictory-literals)
-       (t-transform simplify-domains) ; XXX call this less often
+       (mapcat decompose-dom-terms)
+       (mapcat extract-contradictory-literals)
+       (mapcat simplify-domains) ; XXX call this less often
        constraints-as-mmap
        subst-known-values))
 

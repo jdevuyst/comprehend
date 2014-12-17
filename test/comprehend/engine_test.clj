@@ -88,12 +88,12 @@
                    set
                    (conj [0 #{0}]))
                (->> (unify {0 [[x y]]} {0 [[2 1]]})
-                    (t-transform decompose-dom-terms)
+                    (mapcat decompose-dom-terms)
                     set))))
 
       (testing "simplify-domains"
         (is (= (->> (unify #{[:a x]} #{[:a 1] [:b 2] [:a 4]})
-                    (t-transform simplify-domains)
+                    (mapcat simplify-domains)
                     (map (fn [[x dom]] [x (set dom)])))
                [[[:a x] #{[:a 1] [:a 4]}]])))
 
