@@ -101,7 +101,7 @@
         (is (= (->> (list [x [1 2 3]] [x [2 3 4 5]]
                           [y #{6 7 8 9}]
                           [z #{1}])
-                    triples-to-map)
+                    constraints-as-map)
                {x #{3 2}
                 y #{6 7 8 9}
                 z #{1}})))
@@ -110,7 +110,7 @@
         (is (-> (list [x [1 2 3]] [x [2 3 4 5]]
                       [y #{6 7 8 9}]
                       [z #{1}])
-                triples-to-map
+                constraints-as-map
                 constraint-map?))
         (is (-> (list [x [1 2 3]] [x [2 3 4 5]]
                       [y #{6 7 8 9}]
@@ -121,13 +121,13 @@
       (testing "develop"
         (is (= (-> (list [[x {y [x z]}] #{[1 {2 [1 3] :a :b}]}]
                          [{100 y} #{{100 2}}])
-                   triples-to-map
+                   constraints-as-map
                    develop)
                {y #{2}, x #{1}, z #{3}}))
         (is (-> (list [[x {y [x z]}] #{[1 {2 [1 3] :a :b}]}]
                       [{100 y} #{{100 2}}]
                       [{3 x} #{{3 4}}])
-                triples-to-map
+                constraints-as-map
                 develop
                 empty?)))
 
@@ -152,7 +152,7 @@
                           [{100 y} #{{100 2}}])
                     list
                     develop-all
-                    (map triples-to-map))
+                    (map constraints-as-map))
                [{x #{1} y #{2} z #{3}}])))
 
       (testing "find-models"

@@ -136,7 +136,7 @@
         :else [[x* #{x}]]))
 
 ;
-; OPERATIONS ON SEQUENCES OF CONSTRAINT TRIPLES
+; OPERATIONS ON SEQUENCES OF CONSTRAINT PAIRS
 ;
 
 (defn t-transform [f constraints]
@@ -195,8 +195,8 @@
   (and (map? x)
        (every? constraint-pair? x)))
 
-(defn triples-to-map [triples]
-  {:pre [(every? constraint-pair? triples)]
+(defn constraints-as-map [constraints]
+  {:pre [(every? constraint-pair? constraints)]
    :post [(constraint-map? %)]}
   (reduce (fn [m [k v]]
             (let [r (ctools/partial-intersection (m k) v)]
@@ -205,7 +205,7 @@
                 (reduced {})
                 (assoc m k r))))
           {}
-          triples))
+          constraints))
 
 (defn subst-known-values [m]
   {:pre [(constraint-map? m)]
@@ -230,7 +230,7 @@
        (t-transform decompose-dom-terms)
        (t-transform extract-contradictory-literals)
        (t-transform simplify-domains) ; XXX call this less often
-       triples-to-map
+       constraints-as-map
        subst-known-values))
 
 (def develop (ctools/fix develop1))
@@ -270,7 +270,7 @@
        set))
 
 ; the develop* functions are currently not very efficient
-(def develop-all (ctools/fix (comp develop-all1 (partial map triples-to-map))))
+(def develop-all (ctools/fix (comp develop-all1 (partial map constraints-as-map))))
 
 (defn model? [x]
   (and (map? x)
@@ -281,7 +281,7 @@
    :post [(every? model? %)]}
   (->> [[[x* [x]]]]
        develop-all
-       (map triples-to-map)
+       (map constraints-as-map)
        (map #(->> %
                   ; (filter (fn [[k v]] (varname k)))
                   (filter (fn [[k v]] (= 1 (count v))))
