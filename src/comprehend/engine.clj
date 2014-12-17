@@ -182,7 +182,7 @@
 
 (declare indexed-match-in)
 
-(defn simplify-domains [[x* dom :as constraint]]
+(defn simplify-domains [!cache [x* dom :as constraint]]
   {:pre [(coll? dom)]
    :post [(constraint-coll? %)]}
   (let [{:keys [query const-map]} (generalize x*)]
@@ -192,12 +192,14 @@
           [constraint]
 
           (not= x* query)
-          [[x* (as-> (indexed-match-in query
+          [[x* (as-> (indexed-match-in !cache
+                                       query
                                        dom
                                        (keys const-map)) $
                      ($ const-map)
-                     (map #(ct/subst % query) $)
-                     (set $))]]
+                     (r/map #(ct/subst % query) $)
+                     (r/reduce conj! (transient #{}) $)
+                     (persistent! $))]]
 
           :else
           [constraint])))
@@ -208,27 +210,30 @@
   (let [values (->> m
                     (filter (fn [[k v]] (varname k)))
                     (filter (fn [[k v]] (= 1 (count v))))
-                    (map (fn [[k v]] [k (first v)]))
-                    (into {}))]
+                    (r/map (fn [[k v]] [k (first v)]))
+                    (r/reduce conj! (transient {}))
+                    persistent!)]
     (->> m
-         (map (fn [[k v]]
-                [(if (varname k)
-                   k
-                   (ct/subst values k))
-                 (ct/subst values v)]))
-         (into {}))))
+         (r/map (fn [[k v]]
+                  [(if (varname k)
+                     k
+                     (ct/subst values k))
+                   (ct/subst values v)]))
+         (r/reduce conj! (transient {}))
+         persistent!)))
 
-(defn develop1 [constraints]
+(defn develop1 [!cache constraints]
   {:pre [(constraint-coll? constraints)]
    :post [(constraint-map? %)]}
   (->> constraints
        (r/mapcat decompose-dom-terms)
        (r/mapcat extract-contradictory-literals)
-       (r/mapcat simplify-domains) ; XXX call this less often
+       (r/mapcat (partial simplify-domains !cache))
        constraints-as-mmap
        subst-known-values))
 
-(def develop (ct/fix develop1))
+(defn develop [!cache constraints]
+  ((ct/fix (partial develop1 !cache)) constraints))
 
 (defn quantify1 [m]
   {:pre [(constraint-map? m)]
@@ -254,40 +259,51 @@
 ; OPERATIONS ON METAVERSES OF CONSTRAINT COLLECTIONS
 ;
 
-(defn develop-all1 [metaverse]
+(defn develop-all1 [!cache metaverse]
   {:pre [(every? constraint-coll? metaverse)]
    :post [(set? %)
           (every? (partial constraint-map?) %)]}
   (->> metaverse
-       (r/map develop)
+
+       (r/reduce conj! (transient []))
+       persistent!
+
+       (r/map (partial develop !cache))
        (r/mapcat quantify1)
-       (r/filter (complement empty?))
+       (r/filter not-empty)
        (r/map constraints-as-mmap)
-       (r/reduce conj #{})))
+
+       (r/fold 1
+               (fn
+                 ([] #{})
+                 ([x y] (set/union x y)))
+               (fn
+                 ([] #{})
+                 ([coll x] (conj coll x))))))
 
 ; the develop* functions are currently not very efficient
-(def develop-all (ct/fix develop-all1))
+(defn develop-all [!cache metaverse]
+  ((ct/fix (partial develop-all1 !cache)) metaverse))
 
 ;
 ; FINDING MODELS
 ;
 
-(defn match-with [xs* dom]
+(defn match-with [!cache xs* dom]
   {:pre [(coll? xs*)
          (coll? dom)
          (grounded? dom)]
    :post [(every? model? %)]}
   (->> [(map (fn [x*] [x* dom]) xs*)]
-       develop-all
+       (develop-all !cache)
        (map constraints-as-model)))
 
-(defn match-in [x* dom]
+(defn match-in [!cache x* dom]
   {:pre [(coll? dom)
          (grounded? dom)]
    :post [(every? model? %)]}
-  (match-with [x*] dom))
+  (match-with !cache [x*] dom))
 
-(def indexed-match-in
-  (ct/memoize (fn [x* dom ks]
-                (set/index (match-in x* dom)
-                           ks))))
+(defn indexed-match-in [!cache x* dom ks]
+  (set/index (ct/memoized !cache match-in x* dom)
+             ks))

@@ -19,25 +19,18 @@
 (defn soft-cache []
   (cache/soft-cache-factory {}))
 
-(def ^:dynamic *!cache* nil)
-
-(defmacro with-cache-atom [!cache & body]
-  `(binding [*!cache* ~!cache]
-            ~@body))
-
-(defn memoize [f]
-  (fn [& args]
-    {:pre [(some? *!cache*)]}
-    (let [!c *!cache*
-          k [f args]
-          r (cache/lookup @!c k ::not-found)]
-      (if (identical? ::not-found r)
-        (let [r (apply f args)]
-          (swap! !c cache/miss k r)
-          r)
-        (do
-          (swap! !c cache/hit k)
-          r)))))
+(defn memoized [!cache f & args]
+  {:pre [(some? !cache)
+         (fn? f)]}
+  (let [k [f args]
+        r (cache/lookup @!cache k ::not-found)]
+    (if (identical? ::not-found r)
+      (let [r (apply f !cache args)]
+        (swap! !cache cache/miss k r)
+        r)
+      (do
+        (swap! !cache cache/hit k)
+        r))))
 
 ;
 ; FIXPOINTS

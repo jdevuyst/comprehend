@@ -82,7 +82,7 @@
                              (edge a b) (edge b c) (edge c d) (edge d e)
                              [a b c d e]))))
 
-    (print "Finding paths using comprehend and the set of pairs... ")
+    (print "Finding paths using comprehend and the map in the set... ")
 
     (reset! !v2 (time (vec (c/comprehend
                              @!M
