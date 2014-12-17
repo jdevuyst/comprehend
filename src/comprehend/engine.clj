@@ -58,12 +58,10 @@
 ; CONSTRAINT STRUCTURES
 ;
 
-(defn- constraint-triple? [x]
+(defn- constraint-pair? [x]
   (and (vector? x)
-       (= 3 (count x))
-       (let [[a b c] x]
-         (and (= :dom a)
-              (coll? c)))))
+       (= 2 (count x))
+       (-> x second coll?)))
 
 ;
 ; GENERALIZATIONS
@@ -90,7 +88,7 @@
 ;
 
 (defmacro ^:private falsum [explanation]
-  `[[:dom ~explanation #{}]])
+  `[[(variable ~explanation) #{}]])
 
 (declare unify)
 
@@ -100,8 +98,8 @@
          (-> coll* map? not)
          (-> coll map? not)
          (grounded? coll)]
-   :post [(every? constraint-triple? %)]}
-  (map (fn [el*] [:dom el* coll])
+   :post [(every? constraint-pair? %)]}
+  (map (fn [el*] [el* coll])
        coll*))
 
 (defn unify-sequentials [l* l]
@@ -109,20 +107,20 @@
          (sequential? l)
          (grounded? l)
          (= (count l*) (count l))]
-   :post [(every? constraint-triple? %)]}
+   :post [(every? constraint-pair? %)]}
   (mapcat unify l* l))
 
 (defn unify-maps [m* m]
   {:pre [(map? m*)
          (map? m)
          (grounded? m)]
-   :post [(every? constraint-triple? %)]}
-  (map (fn [kv] [:dom kv (seq m)])
+   :post [(every? constraint-pair? %)]}
+  (map (fn [kv] [kv (seq m)])
        (seq m*)))
 
 (defn unify [x* x]
   {:pre [(grounded? x)]
-   :post [(every? constraint-triple? %)]}
+   :post [(every? constraint-pair? %)]}
   (cond (sequential? x*) (if (and (sequential? x)
                                   (= (count x*)
                                      (count x)))
@@ -135,7 +133,7 @@
                             (-> x map? not))
                      (unify-colls x* x)
                      (falsum :not-a-coll))
-        :else [[:dom x* #{x}]]))
+        :else [[x* #{x}]]))
 
 ;
 ; OPERATIONS ON SEQUENCES OF CONSTRAINT TRIPLES
@@ -143,29 +141,26 @@
 
 (defn t-transform [f constraints]
   {:pre [(fn? f)
-         (every? constraint-triple? constraints)]
-   :post [(every? constraint-triple? %)]}
-  (mapcat (fn [[t x* x :as v]]
-            (or (f t x* x)
+         (every? constraint-pair? constraints)]
+   :post [(every? constraint-pair? %)]}
+  (mapcat (fn [[x* x :as v]]
+            (or (f x* x)
                 [v]))
           constraints))
 
-(defn decompose-dom-terms [t x* dom]
-  {:pre [(keyword? t)]
-   :post [(every? constraint-triple? %)]}
-  (when (and (= :dom t)
-             (= 1 (count dom))
+(defn decompose-dom-terms [x* dom]
+  {:post [(every? constraint-pair? %)]}
+  (when (and (= 1 (count dom))
              (not (varname x*)))
     (unify x* (first dom))))
 
-(defn extract-contradictory-literals [t x dom]
-  (when (and (= :dom t)
-             (-> x coll? not)
+(defn extract-contradictory-literals [x dom]
+  (when (and (-> x coll? not)
              (-> x varname not))
     (let [s (ctools/as-set dom)]
       (if (contains? s x)
         []
-        [[:dom x #{}]]))))
+        [[x #{}]]))))
 
 (declare find-models)
 
@@ -174,52 +169,41 @@
                     (set/index (find-models x* x)
                                ks))))
 
-(defn simplify-domains [t x* dom]
-  (when (= :dom t)
-    (let [{:keys [query const-map]} (generalize x*)]
-      (assert query)
-      (assert (map? const-map))
-      (cond (varname query)
-            nil ; merely need to test for consistency
+(defn simplify-domains [x* dom]
+  (let [{:keys [query const-map]} (generalize x*)]
+    (assert query)
+    (assert (map? const-map))
+    (cond (varname query)
+          nil ; merely need to test for consistency
 
-            (not= x* query)
-            [[:dom x* (as-> (find-and-index-models #{query}
-                                                   dom
-                                                   (keys const-map)) $
-                            ($ const-map)
-                            (map #(ctools/subst % query) $)
-                            (set $))]]
+          (not= x* query)
+          [[x* (as-> (find-and-index-models #{query}
+                                            dom
+                                            (keys const-map)) $
+                     ($ const-map)
+                     (map #(ctools/subst % query) $)
+                     (set $))]]
 
-            :else
-            nil))))
+          :else
+          nil)))
 
 ;
 ; CONSTRAINT MAPS
 ;
 
-(defn map-to-triples [m]
-  {:pre [(map? m)]
-   :post [(every? constraint-triple? %)]}
-  (mapcat (fn [[t m2]]
-            (map (fn [[k v]] [t k v])
-                 m2))
-          m))
-
 (defn constraint-map? [x]
   (and (map? x)
-       (->> x
-            map-to-triples
-            (every? constraint-triple?))))
+       (every? constraint-pair? x)))
 
 (defn triples-to-map [triples]
-  {:pre [(every? constraint-triple? triples)]
+  {:pre [(every? constraint-pair? triples)]
    :post [(constraint-map? %)]}
-  (reduce (fn [m [t k v]]
-            (let [r (ctools/partial-intersection (get-in m [t k]) v)]
+  (reduce (fn [m [k v]]
+            (let [r (ctools/partial-intersection (m k) v)]
               (assert r)
               (if (empty? r)
                 (reduced {})
-                (assoc-in m [t k] r))))
+                (assoc m k r))))
           {}
           triples))
 
@@ -227,21 +211,20 @@
   {:pre [(constraint-map? m)]
    :post [(constraint-map? %)]}
   (let [values (->> m
-                    :dom
                     (filter (fn [[k v]] (varname k)))
                     (filter (fn [[k v]] (= 1 (count v))))
                     (map (fn [[k v]] [k (first v)]))
                     (into {}))]
-    {:dom (->> (:dom m)
-               (map (fn [[k v]]
-                      [(if (varname k)
-                         k
-                         (ctools/subst values k))
-                       (ctools/subst values v)]))
-               (into {}))}))
+    (->> m
+         (map (fn [[k v]]
+                [(if (varname k)
+                   k
+                   (ctools/subst values k))
+                 (ctools/subst values v)]))
+         (into {}))))
 
 (defn develop1 [constraints]
-  {:pre [(every? constraint-triple? constraints)]
+  {:pre [(every? constraint-pair? constraints)]
    :post [(constraint-map? %)]}
   (->> constraints
        (t-transform decompose-dom-terms)
@@ -250,7 +233,7 @@
        triples-to-map
        subst-known-values))
 
-(def develop (ctools/fix (comp develop1 map-to-triples)))
+(def develop (ctools/fix develop1))
 
 ;
 ; QUANTIFY OVER DOMAINS
@@ -258,9 +241,9 @@
 
 (defn quantify1 [m]
   {:pre [(constraint-map? m)]
-   :post [(every? (partial every? constraint-triple?) %)]}
+   :post [(every? (partial every? constraint-pair?) %)]}
   (let [[k dom :as kv]
-        (->> (get m :dom {})
+        (->> m
              (filter (fn [[k dom]] (> (count dom) 1)))
              (reduce (fn [[k1 dom1 :as kv1] [k2 dom2 :as kv2]]
                        (if (or (> (count dom1) (count dom2))
@@ -268,21 +251,20 @@
                          (cond-> kv2
                                  (= (count dom2) 2) reduced)
                          kv1))
-                     nil))
-        triples (map-to-triples m)]
+                     nil))]
     (when kv
       (map (fn [v]
-             (concat triples
-                     [[:dom k #{v}]]))
+             (concat m
+                     [[k #{v}]]))
            dom))))
 
 (defn develop-all1 [metaverse]
   {:pre [(every? constraint-map? metaverse)]
-   :post [(every? (partial every? constraint-triple?) %)]}
+   :post [(every? (partial every? constraint-pair?) %)]}
   (->> metaverse
        (map develop)
        (mapcat #(or (quantify1 %)
-                    [(map-to-triples %)]))
+                    [%]))
        (filter (complement empty?))
        (map set)
        set))
@@ -297,11 +279,10 @@
 (defn find-models [x* x]
   {:pre [(grounded? x)]
    :post [(every? model? %)]}
-  (->> [[[:dom x* [x]]]]
+  (->> [[[x* [x]]]]
        develop-all
        (map triples-to-map)
        (map #(->> %
-                  :dom
                   ; (filter (fn [[k v]] (varname k)))
                   (filter (fn [[k v]] (= 1 (count v))))
                   (map (fn [[k v]] [k (first v)]))

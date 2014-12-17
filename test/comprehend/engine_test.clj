@@ -63,30 +63,30 @@
 
       (testing "unify-colls"
         (is (= (set (unify #{x y :lit} #{1 2 3}))
-               #{[:dom x #{1 2 3}]
-                 [:dom y #{1 2 3}]
-                 [:dom :lit #{1 2 3}]})))
+               #{[x #{1 2 3}]
+                 [y #{1 2 3}]
+                 [:lit #{1 2 3}]})))
 
       (testing "unify-sequentials"
         (is (= (set (unify [x y] [1 2]))
-               #{[:dom x #{1}]
-                 [:dom y #{2}]}))
+               #{[x #{1}]
+                 [y #{2}]}))
         (is (= (set (unify [1 2] [1 2]))
-               #{[:dom 1 #{1}] [:dom 2 #{2}]}))
+               #{[1 #{1}] [2 #{2}]}))
         (is (= (set (unify [1 2] [2 1]))
-               #{[:dom 2 #{1}] [:dom 1 #{2}]})))
+               #{[2 #{1}] [1 #{2}]})))
 
       (testing "unify-maps"
         (is (= (->> (unify-maps {1 x 3 y} {1 2 3 4})
-                    (map (fn [[t x dom]] [t x (set dom)]))
+                    (map (fn [[x dom]] [x (set dom)]))
                     set)
-               #{[:dom [1 x] #{[1 2] [3 4]}]
-                 [:dom [3 y] #{[1 2] [3 4]}]})))
+               #{[[1 x] #{[1 2] [3 4]}]
+                 [[3 y] #{[1 2] [3 4]}]})))
 
       (testing "mixed"
         (is (= (-> (unify [x y] [2 1])
                    set
-                   (conj [:dom 0 #{0}]))
+                   (conj [0 #{0}]))
                (->> (unify-maps {0 [[x y]]} {0 [[2 1]]})
                     (t-transform decompose-dom-terms)
                     set))))
@@ -94,80 +94,66 @@
       (testing "simplify-domains"
         (is (= (->> (unify-colls #{[:a x]} #{[:a 1] [:b 2] [:a 4]})
                     (t-transform simplify-domains)
-                    (map (fn [[x y z]] [x y (set z)])))
-               [[:dom [:a x] #{[:a 1] [:a 4]}]])))
+                    (map (fn [[x dom]] [x (set dom)])))
+               [[[:a x] #{[:a 1] [:a 4]}]])))
 
       (testing "sequences of triples to maps"
-        (is (= (->> (list [:dom x [1 2 3]] [:dom x [2 3 4 5]]
-                          [:dom y #{6 7 8 9}]
-                          [:dom z #{1}])
+        (is (= (->> (list [x [1 2 3]] [x [2 3 4 5]]
+                          [y #{6 7 8 9}]
+                          [z #{1}])
                     triples-to-map)
-               {:dom {x #{3 2}
-                      y #{6 7 8 9}
-                      z #{1}}})))
-
-      (testing "maps to sequences of triples"
-        (is (= (->> (list [:dom x [1 2 3]] [:dom x [2 3 4 5]]
-                          [:dom y #{6 7 8 9}]
-                          [:dom z #{1}])
-                    triples-to-map
-                    map-to-triples
-                    set)
-               #{[:dom x #{2 3}]
-                 [:dom y #{6 7 8 9}]
-                 [:dom z #{1}]})))
+               {x #{3 2}
+                y #{6 7 8 9}
+                z #{1}})))
 
       (testing "constraint-map?"
-        (is (-> (list [:dom x [1 2 3]] [:dom x [2 3 4 5]]
-                      [:dom y #{6 7 8 9}]
-                      [:dom z #{1}])
+        (is (-> (list [x [1 2 3]] [x [2 3 4 5]]
+                      [y #{6 7 8 9}]
+                      [z #{1}])
                 triples-to-map
                 constraint-map?))
-        (is (-> (list [:dom x [1 2 3]] [:dom x [2 3 4 5]]
-                      [:dom y #{6 7 8 9}]
-                      [:dom z #{1}])
+        (is (-> (list [x [1 2 3]] [x [2 3 4 5]]
+                      [y #{6 7 8 9}]
+                      [z #{1}])
                 constraint-map?
                 not)))
 
       (testing "develop"
-        (is (= (-> (list [:dom [x {y [x z]}] #{[1 {2 [1 3] :a :b}]}]
-                         [:dom {100 y} #{{100 2}}])
+        (is (= (-> (list [[x {y [x z]}] #{[1 {2 [1 3] :a :b}]}]
+                         [{100 y} #{{100 2}}])
                    triples-to-map
-                   develop
-                   :val)
-               {y 2, x 1, z 3}))
-        (is (-> (list [:dom [x {y [x z]}] #{[1 {2 [1 3] :a :b}]}]
-                      [:dom {100 y} #{{100 2}}]
-                      [:dom {3 x} #{{3 4}}])
+                   develop)
+               {y #{2}, x #{1}, z #{3}}))
+        (is (-> (list [[x {y [x z]}] #{[1 {2 [1 3] :a :b}]}]
+                      [{100 y} #{{100 2}}]
+                      [{3 x} #{{3 4}}])
                 triples-to-map
                 develop
-                :val
                 empty?)))
 
       (testing "quantify1"
         (let [x-dom #{1 2 3}
-              m {:dom {x x-dom
-                       y #{4 5 6 7}
-                       z #{8}}}]
+              m {x x-dom
+                 y #{4 5 6 7}
+                 z #{8}}]
           (is (= (count x-dom) (count (quantify1 m))))
           (is (= x-dom (->> (quantify1 m)
                             (map develop1)
-                            (map :val)
                             (map #(get % x))
+                            (map first)
                             set))))
-        (is (= (-> {:dom {x #{2}
-                          y #{4}}}
+        (is (= (-> {x #{2}
+                          y #{4}}
                    quantify1)
                nil)))
 
       (testing "develop-all"
-        (is (= (->> (list [:dom [x {y [x z]}] #{[1 {2 [1 3] :a :b}]}]
-                          [:dom {100 y} #{{100 2}}])
+        (is (= (->> (list [[x {y [x z]}] #{[1 {2 [1 3] :a :b}]}]
+                          [{100 y} #{{100 2}}])
                     list
                     develop-all
-                    (map triples-to-map)
-                    (map :val))
-               [{x 1 y 2 z 3}])))
+                    (map triples-to-map))
+               [{x #{1} y #{2} z #{3}}])))
 
       (testing "find-models"
         (is (= (find-models {x 2 y z} {1 2 3 4 5 6})
