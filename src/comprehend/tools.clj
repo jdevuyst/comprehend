@@ -4,10 +4,6 @@
             [clojure.walk :as w]
             [clojure.core.cache :as cache]))
 
-;
-; Warn if assertions are enabled
-;
-
 (defmacro assert-notice []
   (when *assert*
     `(println (str "NOTICE: Assertions are enabled for "
@@ -43,8 +39,6 @@
           (swap! !c cache/hit k)
           r)))))
 
-; (def memoize clojure.core/memoize)
-
 ;
 ; MISC
 ;
@@ -59,14 +53,15 @@
   `((fix (fn [~name] ~expr)) ~val))
 
 (defn subst [m structure]
-  {:pre [(or (nil? m) (map? m))]}
-  (w/postwalk #(let [v (get m % ::not-found)]
-                 (if (= v ::not-found)
-                   %
-                   v))
+  {:pre [(map? m)]}
+  (w/postwalk #(if-let [v (find m %)]
+                 (val v)
+                 %)
               structure))
 
 (defn as-set [coll]
+  {:pre [(coll? coll)]
+   :post [(set? %)]}
   (if (set? coll)
     coll
     (set coll)))
@@ -80,12 +75,3 @@
   (cond (and s1 s2) (set/intersection (as-set s1) (as-set s2))
         s1 s1
         :else s2))
-
-; (defn reverse-map [m]
-;   {:pre [(map? m)]}
-;   (reduce (fn [idx [k v]]
-;             (update-in idx [v] conj k))
-;           {}
-;           m))
-
-; (def memoized-reverse-map (memoize reverse-map))

@@ -91,11 +91,11 @@
               vals
               (every? (partial = 1)))]
    :post [(model? %)]}
-   (reduce (fn [m [k v]]
+  (reduce (fn [m [k v]]
 
-             (assoc m k (first v)))
-           {}
-           constraints))
+            (assoc m k (first v)))
+          {}
+          constraints))
 
 ;
 ; GENERALIZATIONS
@@ -121,36 +121,7 @@
 ; (PARTIAL) UNIFICATION WITH STRUCTURES
 ;
 
-(defmacro ^:private falsum [explanation]
-  `[[(variable ~explanation) #{}]])
-
-(declare unify)
-
-(defn unify-colls [coll* coll]
-  {:pre [(coll? coll*)
-         (coll? coll)
-         (-> coll* map? not)
-         (-> coll map? not)
-         (grounded? coll)]
-   :post [(constraint-coll? %)]}
-  (map (fn [el*] [el* coll])
-       coll*))
-
-(defn unify-sequentials [l* l]
-  {:pre [(sequential? l*)
-         (sequential? l)
-         (grounded? l)
-         (= (count l*) (count l))]
-   :post [(constraint-coll? %)]}
-  (mapcat unify l* l))
-
-(defn unify-maps [m* m]
-  {:pre [(map? m*)
-         (map? m)
-         (grounded? m)]
-   :post [(constraint-coll? %)]}
-  (map (fn [kv] [kv (seq m)])
-       (seq m*)))
+(def ^:private falsum [(variable :falsum) #{}])
 
 (defn unify [x* x]
   {:pre [(grounded? x)]
@@ -158,15 +129,18 @@
   (cond (sequential? x*) (if (and (sequential? x)
                                   (= (count x*)
                                      (count x)))
-                           (unify-sequentials x* x)
-                           (falsum :not-sequential))
+                           (mapcat unify x* x)
+                           [falsum])
         (map? x*) (if (map? x)
-                    (unify-maps x* x)
-                    (falsum :not-a-map))
+                    (map (fn [kv] [kv (seq x)])
+                         x*)
+                    [falsum])
         (coll? x*) (if (and (coll? x)
+                            (-> x sequential? not)
                             (-> x map? not))
-                     (unify-colls x* x)
-                     (falsum :not-a-coll))
+                     (map (fn [el*] [el* x])
+                          x*)
+                     [falsum])
         :else [[x* #{x}]]))
 
 ;
@@ -191,16 +165,15 @@
 (defn extract-contradictory-literals [x dom]
   (when (and (-> x coll? not)
              (-> x varname not))
-    (let [s (ctools/as-set dom)]
-      (if (contains? s x)
-        []
-        [[x #{}]]))))
+    (if (contains? (ctools/as-set dom) x)
+      []
+      [falsum])))
 
 (declare find-models)
 
 (def find-and-index-models
-  (ctools/memoize (fn [x* x ks]
-                    (set/index (find-models x* x)
+  (ctools/memoize (fn [x* dom ks]
+                    (set/index (find-models x* dom)
                                ks))))
 
 (defn simplify-domains [x* dom]
@@ -211,7 +184,7 @@
           nil ; merely need to test for consistency
 
           (not= x* query)
-          [[x* (as-> (find-and-index-models #{query}
+          [[x* (as-> (find-and-index-models query
                                             dom
                                             (keys const-map)) $
                      ($ const-map)
@@ -290,17 +263,11 @@
 ; the develop* functions are currently not very efficient
 (def develop-all (ctools/fix (comp develop-all1 (partial map constraints-as-mmap))))
 
-(defn find-models [x* x]
-  {:pre [(grounded? x)]
+(defn find-models [x* dom]
+  {:pre [(coll? dom)
+         (grounded? dom)]
    :post [(every? model? %)]}
-  (->> [[[x* [x]]]]
+  (->> [[[x* dom]]]
        develop-all
        (map constraints-as-model)
        set))
-
-(defn match-in [x* dom]
-  {:pre [(coll? dom)
-         (-> dom map? not)]
-   :post [(coll? %)]}
-  (->> (find-models #{x*} dom)
-       (map #(ctools/subst % x*))))

@@ -61,13 +61,13 @@
                    generalize
                    :query))))
 
-      (testing "unify-colls"
+      (testing "unify colls"
         (is (= (set (unify #{x y :lit} #{1 2 3}))
                #{[x #{1 2 3}]
                  [y #{1 2 3}]
                  [:lit #{1 2 3}]})))
 
-      (testing "unify-sequentials"
+      (testing "unify sequentials"
         (is (= (set (unify [x y] [1 2]))
                #{[x #{1}]
                  [y #{2}]}))
@@ -76,8 +76,8 @@
         (is (= (set (unify [1 2] [2 1]))
                #{[2 #{1}] [1 #{2}]})))
 
-      (testing "unify-maps"
-        (is (= (->> (unify-maps {1 x 3 y} {1 2 3 4})
+      (testing "unify maps"
+        (is (= (->> (unify {1 x 3 y} {1 2 3 4})
                     (map (fn [[x dom]] [x (set dom)]))
                     set)
                #{[[1 x] #{[1 2] [3 4]}]
@@ -87,12 +87,12 @@
         (is (= (-> (unify [x y] [2 1])
                    set
                    (conj [0 #{0}]))
-               (->> (unify-maps {0 [[x y]]} {0 [[2 1]]})
+               (->> (unify {0 [[x y]]} {0 [[2 1]]})
                     (t-transform decompose-dom-terms)
                     set))))
 
       (testing "simplify-domains"
-        (is (= (->> (unify-colls #{[:a x]} #{[:a 1] [:b 2] [:a 4]})
+        (is (= (->> (unify #{[:a x]} #{[:a 1] [:b 2] [:a 4]})
                     (t-transform simplify-domains)
                     (map (fn [[x dom]] [x (set dom)])))
                [[[:a x] #{[:a 1] [:a 4]}]])))
@@ -131,7 +131,7 @@
                             (map first)
                             set))))
         (is (= (-> {x #{2}
-                          y #{4}}
+                    y #{4}}
                    quantify1)
                nil)))
 
@@ -144,26 +144,22 @@
                [{x #{1} y #{2} z #{3}}])))
 
       (testing "find-models"
-        (is (= (find-models {x 2 y z} {1 2 3 4 5 6})
+        (is (= (find-models {x 2 y z} #{{1 2 3 4 5 6}})
                #{{x 1, y 3, z 4}
                  {x 1, y 5, z 6}
                  {x 1, y 1, z 2}}))
         (is (= (find-models #{[x y] [y x]}
-                            #{[1 2] [2 1] [3 4] [4 5] [5 3] [6 6]})
+                            #{#{[1 2] [2 1] [3 4] [4 5] [5 3] [6 6]}})
                #{{x 1 y 2}
                  {x 2 y 1}
                  {x 6 y 6}}))
         (is (= (find-models #{{x #{y} y #{z}}}
-                            #{{1 #{2 4}
-                               2 #{5 6}
-                               3 #{7 8}
-                               9 #{0}}})
+                            #{#{{1 #{2 4}
+                                 2 #{5 6}
+                                 3 #{7 8}
+                                 9 #{0}}}})
                #{{x 1 y 2 z 5}
-                 {x 1 y 2 z 6}})))
-
-      (testing "match patterns in a set"
-        (is (= (set (match-in [:a x y] #{[:a 1 2] [:a 2 3] [:b 3 4]}))
-               #{[:a 1 2] [:a 2 3]}))))))
+                 {x 1 y 2 z 6}}))))))
 
 (let [this-ns-name (ns-name *ns*)]
   (defn reload-and-test []

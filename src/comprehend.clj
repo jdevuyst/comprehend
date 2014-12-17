@@ -193,7 +193,7 @@
               (ctools/with-cache-atom
                 (.-!cache ~s-name)
                 (ce/find-models #{~@patterns}
-                                (.-hs ~s-name)))
+                                #{(.-hs ~s-name)}))
               )
             ; (pldb/with-db
             ;   (.-idx ~s-name)
