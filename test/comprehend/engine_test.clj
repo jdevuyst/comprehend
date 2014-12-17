@@ -83,15 +83,6 @@
                #{[:dom [1 x] #{[1 2] [3 4]}]
                  [:dom [3 y] #{[1 2] [3 4]}]})))
 
-      (testing "grounded :cont -> :dom"
-        (is (= (->> (list [:cont [x] [identity]]
-                          [:dom [2] #{2}]
-                          [:cont :k [#(list [:dom % #{1 2 3}])]])
-                    (t-transform materialize-grounded-continuations))
-               (list [:cont [x] [identity]]
-                     [:dom [2] #{2}]
-                     [:dom :k #{1 2 3}]))))
-
       (testing "mixed"
         (is (= (-> (unify [x y] [2 1])
                    set
@@ -109,37 +100,31 @@
       (testing "sequences of triples to maps"
         (is (= (->> (list [:dom x [1 2 3]] [:dom x [2 3 4 5]]
                           [:dom y #{6 7 8 9}]
-                          [:cont y #{identity}] [:cont y #{inc +}]
                           [:val z 1])
                     triples-to-map)
                {:val {z 1}
-                :cont {y #{+ inc identity}}
                 :dom {x #{3 2}
                       y #{6 7 8 9}}})))
 
       (testing "maps to sequences of triples"
         (is (= (->> (list [:dom x [1 2 3]] [:dom x [2 3 4 5]]
                           [:dom y #{6 7 8 9}]
-                          [:cont y #{identity}] [:cont y #{inc +}]
                           [:val z 1])
                     triples-to-map
                     map-to-triples
                     set)
                #{[:dom x #{2 3}]
                  [:dom y #{6 7 8 9}]
-                 [:cont y #{+ inc identity}]
                  [:val z 1]})))
 
       (testing "constraint-map?"
         (is (-> (list [:dom x [1 2 3]] [:dom x [2 3 4 5]]
                       [:dom y #{6 7 8 9}]
-                      [:cont y #{identity}] [:cont y #{inc +}]
                       [:val z 1])
                 triples-to-map
                 constraint-map?))
         (is (-> (list [:dom x [1 2 3]] [:dom x [2 3 4 5]]
                       [:dom y #{6 7 8 9}]
-                      [:cont y #{identity}] [:cont y #{inc +}]
                       [:val z 1])
                 constraint-map?
                 not)))

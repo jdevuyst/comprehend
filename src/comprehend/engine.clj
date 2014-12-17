@@ -64,8 +64,6 @@
        (let [[a b c] x]
          (or (and (= :dom a)
                   (coll? c))
-             (and (= :cont a)
-                  (every? fn? c))
              (and (= :val a)
                   (varname b))))))
 
@@ -162,13 +160,6 @@
              (not (varname x*)))
     (unify x* (first dom))))
 
-(defn materialize-grounded-continuations [t x* fs]
-  {:pre [(keyword? t)]
-   :post [(every? constraint-triple? %)]}
-  (when (and (= :cont t)
-             (grounded? x*))
-    (mapcat #(% x*) fs)))
-
 (defn extract-known-values [t x* dom]
   (when (and (= :dom t)
              (= 1 (count dom))
@@ -246,9 +237,7 @@
                      (reduced {}))
               (update-in m
                          [t k]
-                         (case t
-                           :cont set/union
-                           :dom ctools/partial-intersection)
+                         ctools/partial-intersection
                          v)))
           {}
           triples))
@@ -257,7 +246,6 @@
   {:pre [(constraint-map? m)]
    :post [(constraint-map? %)]}
   {:val (:val m)
-   :cont (ctools/subst (:val m) (:cont m))
    :dom (ctools/subst (:val m) (:dom m))})
 
 (defn develop1 [constraints]
@@ -265,7 +253,6 @@
    :post [(constraint-map? %)]}
   (->> constraints
        (t-transform decompose-dom-terms)
-       (t-transform materialize-grounded-continuations)
        (t-transform extract-known-values)
        (t-transform extract-empty-domains)
        (t-transform extract-contradictory-literals)
@@ -312,12 +299,7 @@
        set))
 
 ; the develop* functions are currently not very efficient
-(def develop-all
-  (let [f (ctools/fix (comp develop-all1 (partial map triples-to-map)))]
-    (fn [metaverse]
-      (let [r (f metaverse)]
-        (assert (every? #(-> % :cont empty?) r))
-        r))))
+(def develop-all (ctools/fix (comp develop-all1 (partial map triples-to-map))))
 
 (defn model? [x]
   (and (map? x)
