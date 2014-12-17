@@ -2,7 +2,7 @@
   (:require [comprehend.tools :as ct]
             [clojure.set :as set]
             [clojure.walk :as w]
-            [clojure.tools.trace :refer [deftrace trace trace-ns]]))
+            [clojure.core.reducers :as r]))
 
 (ct/assert-notice)
 
@@ -48,18 +48,17 @@
 ; XXX {:a :b x y} and {:b :a x y}
 ; do not currenty have identical queries
 ; neither do [x y] and [y x]
-(let [const (variable ::const)]
-  (defn generalize [x*]
-    (let [!m (atom {})
-          f (fn [y]
-              (let [y* (-> @!m count variable)]
-                (swap! !m assoc y* y)
-                y*))]
-      {:query (w/prewalk #(if (grounded? %)
-                            (f %)
-                            %)
-                         x*)
-       :const-map @!m})))
+(defn generalize [x*]
+  (let [!m (atom {})
+        f (fn [y]
+            (let [y* (-> @!m count variable)]
+              (swap! !m assoc y* y)
+              y*))]
+    {:query (w/prewalk #(if (grounded? %)
+                          (f %)
+                          %)
+                       x*)
+     :const-map @!m}))
 
 ;
 ; CONSTRAINT STRUCTURES
@@ -78,15 +77,23 @@
   (and (map? x) (constraint-coll? x)))
 
 (defn constraints-as-mmap [constraints]
-  {:pre [(constraint-coll? constraints)]
+  {:pre [(r/reduce (fn f
+                     ([b x y] (f b [x y]))
+                     ([b c] (and b (constraint-pair? c))))
+                   true
+                   constraints)]
    :post [(constraint-map? %)]}
-  (reduce (fn [m [k v]]
-            (let [r (ct/partial-intersection (m k) v)]
-              (if (empty? r)
-                (reduced {})
-                (assoc m k r))))
-          {}
-          constraints))
+  (->> constraints
+       (r/reduce (fn f
+                   ([m [k v]]
+                    (f m k v))
+                   ([m k v]
+                    (let [r (ct/partial-intersection (m k) v)]
+                      (if (empty? r)
+                        (reduced (transient {}))
+                        (assoc! m k r)))))
+                 (transient {}))
+       persistent!))
 
 ;
 ; MODELS
@@ -111,11 +118,12 @@
               vals
               (every? (partial = 1)))]
    :post [(model? %)]}
-  (reduce (fn [m [k v]]
-
-            (assoc m k (first v)))
-          {}
-          constraints))
+  (->> constraints
+       (r/reduce (fn f
+                   ([m [k v]] (f m k v))
+                   ([m k v] (assoc! m k (first v))))
+                 (transient {}))
+       persistent!))
 
 ;
 ; (PARTIAL) UNIFICATION WITH STRUCTURES
@@ -214,9 +222,9 @@
   {:pre [(constraint-coll? constraints)]
    :post [(constraint-map? %)]}
   (->> constraints
-       (mapcat decompose-dom-terms)
-       (mapcat extract-contradictory-literals)
-       (mapcat simplify-domains) ; XXX call this less often
+       (r/mapcat decompose-dom-terms)
+       (r/mapcat extract-contradictory-literals)
+       (r/mapcat simplify-domains) ; XXX call this less often
        constraints-as-mmap
        subst-known-values))
 
@@ -227,14 +235,14 @@
    :post [(every? (partial constraint-coll?) %)]}
   (let [[k dom :as kv]
         (->> m
-             (filter (fn [[k dom]] (> (count dom) 1)))
-             (reduce (fn [[k1 dom1 :as kv1] [k2 dom2 :as kv2]]
-                       (if (or (> (count dom1) (count dom2))
-                               (nil? kv1))
-                         (cond-> kv2
-                                 (= (count dom2) 2) reduced)
-                         kv1))
-                     nil))]
+             (r/filter (fn [[k dom]] (> (count dom) 1)))
+             (r/reduce (fn [[k1 dom1 :as kv1] [k2 dom2 :as kv2]]
+                         (if (or (> (count dom1) (count dom2))
+                                 (nil? kv1))
+                           (cond-> kv2
+                                   (= (count dom2) 2) reduced)
+                           kv1))
+                       nil))]
     (if kv
       (map (fn [v]
              (concat m
@@ -251,11 +259,11 @@
    :post [(set? %)
           (every? (partial constraint-map?) %)]}
   (->> metaverse
-       (map develop)
-       (mapcat quantify1)
-       (filter (complement empty?))
-       (map constraints-as-mmap)
-       set))
+       (r/map develop)
+       (r/mapcat quantify1)
+       (r/filter (complement empty?))
+       (r/map constraints-as-mmap)
+       (r/reduce conj #{})))
 
 ; the develop* functions are currently not very efficient
 (def develop-all (ct/fix develop-all1))
@@ -281,5 +289,5 @@
 
 (def indexed-match-in
   (ct/memoize (fn [x* dom ks]
-                    (set/index (match-in x* dom)
-                               ks))))
+                (set/index (match-in x* dom)
+                           ks))))
