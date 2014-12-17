@@ -61,16 +61,16 @@
                    generalize
                    :query))))
 
-    (testing "unification-type"
-      (is (= (unification-type {1 2 3 4}) :map))
-      (is (= (unification-type [1 2 3 4])
-             (unification-type '(1 2 3 4))
-             (unification-type (map identity {1 2 3 4 5 6 7 8}))
-             [:list-like 4]))
-      (is (= (unification-type #{1 2 3 4}) :set-like))
-      (is (= (unification-type nil)
-             (unification-type 1)
-             :not-a-coll)))
+      (testing "unification-type"
+        (is (= (unification-type {1 2 3 4}) :map))
+        (is (= (unification-type [1 2 3 4])
+               (unification-type '(1 2 3 4))
+               (unification-type (map identity {1 2 3 4 5 6 7 8}))
+               [:list-like 4]))
+        (is (= (unification-type #{1 2 3 4}) :set-like))
+        (is (= (unification-type nil)
+               (unification-type 1)
+               :not-a-coll)))
 
       (testing "unify colls"
         (is (= (set (unify #{x y :lit} #{1 2 3}))
@@ -120,14 +120,16 @@
       (testing "develop"
         (is (= (-> (list [[x {y [x z]}] #{[1 {2 [1 3] :a :b}]}]
                          [{100 y} #{{100 2}}])
-                   constraints-as-mmap
-                   develop)
+                   develop1
+                   develop1
+                   develop1
+                   constraints-as-mmap)
                {y #{2}, x #{1}, z #{3}}))
         (is (-> (list [[x {y [x z]}] #{[1 {2 [1 3] :a :b}]}]
                       [{100 y} #{{100 2}}]
                       [{3 x} #{{3 4}}])
-                constraints-as-mmap
-                develop
+                develop1
+                develop1
                 empty?)))
 
       (testing "quantify1"
@@ -141,10 +143,10 @@
                             (map #(get % x))
                             (map first)
                             set))))
-        (is (= (-> {x #{2}
-                    y #{4}}
-                   quantify1)
-               nil)))
+        (is (= (-> {x #{2} y #{4}}
+                   quantify1
+                   set)
+               #{{x #{2} y #{4}}})))
 
       (testing "develop-all"
         (is (= (->> (list [[x {y [x z]}] #{[1 {2 [1 3] :a :b}]}]
@@ -154,21 +156,21 @@
                     (map constraints-as-mmap))
                [{x #{1} y #{2} z #{3}}])))
 
-      (testing "find-models"
-        (is (= (find-models {x 2 y z} #{{1 2 3 4 5 6}})
+      (testing "find models"
+        (is (= (set (match-in {x 2 y z} #{{1 2 3 4 5 6}}))
                #{{x 1, y 3, z 4}
                  {x 1, y 5, z 6}
                  {x 1, y 1, z 2}}))
-        (is (= (find-models #{[x y] [y x]}
-                            #{#{[1 2] [2 1] [3 4] [4 5] [5 3] [6 6]}})
+        (is (= (set (match-with [[x y] [y x]]
+                                #{[1 2] [2 1] [3 4] [4 5] [5 3] [6 6]}))
                #{{x 1 y 2}
                  {x 2 y 1}
                  {x 6 y 6}}))
-        (is (= (find-models #{{x #{y} y #{z}}}
-                            #{#{{1 #{2 4}
-                                 2 #{5 6}
-                                 3 #{7 8}
-                                 9 #{0}}}})
+        (is (= (set (match-with [{x #{y} y #{z}}]
+                                #{{1 #{2 4}
+                                   2 #{5 6}
+                                   3 #{7 8}
+                                   9 #{0}}}))
                #{{x 1 y 2 z 5}
                  {x 1 y 2 z 6}}))))))
 

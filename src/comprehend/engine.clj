@@ -1,10 +1,10 @@
 (ns comprehend.engine
-  (:require [comprehend.tools :as ctools]
+  (:require [comprehend.tools :as ct]
             [clojure.set :as set]
             [clojure.walk :as w]
             [clojure.tools.trace :refer [deftrace trace trace-ns]]))
 
-(ctools/assert-notice)
+(ct/assert-notice)
 
 ;
 ; FIRST CLASS LOGICAL TERMS
@@ -45,36 +45,56 @@
     (every? grounded? x)
     (not (varname x))))
 
+; XXX {:a :b x y} and {:b :a x y}
+; do not currenty have identical queries
+; neither do [x y] and [y x]
+(let [const (variable ::const)]
+  (defn generalize [x*]
+    (let [!m (atom {})
+          f (fn [y]
+              (let [y* (-> @!m count variable)]
+                (swap! !m assoc y* y)
+                y*))]
+      {:query (w/prewalk #(if (grounded? %)
+                            (f %)
+                            %)
+                         x*)
+       :const-map @!m})))
+
 ;
 ; CONSTRAINT STRUCTURES
 ;
 
-(defn- constraint-pair? [x]
+(defn constraint-pair? [x]
   (and (vector? x)
        (= 2 (count x))
        (-> x second coll?)))
 
-(defn- constraint-coll? [x]
+(defn constraint-coll? [x]
   (and (or (nil? x) (coll? x))
        (every? constraint-pair? x)))
 
-(defn- constraint-map? [x]
+(defn constraint-map? [x]
   (and (map? x) (constraint-coll? x)))
-
-(defn model? [x]
-  (and (map? x)
-       (->> x keys (every? varname))))
 
 (defn constraints-as-mmap [constraints]
   {:pre [(constraint-coll? constraints)]
    :post [(constraint-map? %)]}
   (reduce (fn [m [k v]]
-            (let [r (ctools/partial-intersection (m k) v)]
+            (let [r (ct/partial-intersection (m k) v)]
               (if (empty? r)
                 (reduced {})
                 (assoc m k r))))
           {}
           constraints))
+
+;
+; MODELS
+;
+
+(defn model? [x]
+  (and (map? x)
+       (->> x keys (every? varname))))
 
 (defn constraints-as-model [constraints]
   {:pre [(constraint-coll? constraints)
@@ -96,26 +116,6 @@
             (assoc m k (first v)))
           {}
           constraints))
-
-;
-; GENERALIZATIONS
-;
-
-; XXX {:a :b x y} and {:b :a x y}
-; do not currenty have identical queries
-; neither do [x y] and [y x]
-(let [const (variable ::const)]
-  (defn generalize [x*]
-    (let [!m (atom {})
-          f (fn [y]
-              (let [y* (-> @!m count variable)]
-                (swap! !m assoc y* y)
-                y*))]
-      {:query (w/prewalk #(if (grounded? %)
-                            (f %)
-                            %)
-                         x*)
-       :const-map @!m})))
 
 ;
 ; (PARTIAL) UNIFICATION WITH STRUCTURES
@@ -151,32 +151,32 @@
           (mapcat unify x* x))))
 
 ;
-; OPERATIONS ON SEQUENCES OF CONSTRAINT PAIRS
+; OPERATIONS ON CONSTRAINT COLLECTIONS
 ;
 
 (defn decompose-dom-terms [[x* dom :as constraint]]
-  {:post [(constraint-coll? %)]}
+  {:pre [(coll? dom)]
+   :post [(constraint-coll? %)]}
   (if (and (= 1 (count dom))
            (not (varname x*)))
     (unify x* (first dom))
     [constraint]))
 
 (defn extract-contradictory-literals [[x* dom :as constraint]]
+  {:pre [(coll? dom)]
+   :post [(constraint-coll? %)]}
   (if (and (-> x* coll? not)
            (-> x* varname not))
-    (if (contains? (ctools/as-set dom) x*)
+    (if (contains? (ct/as-set dom) x*)
       []
       [falsum])
     [constraint]))
 
-(declare find-models)
-
-(def find-and-index-models
-  (ctools/memoize (fn [x* dom ks]
-                    (set/index (find-models x* dom)
-                               ks))))
+(declare indexed-match-in)
 
 (defn simplify-domains [[x* dom :as constraint]]
+  {:pre [(coll? dom)]
+   :post [(constraint-coll? %)]}
   (let [{:keys [query const-map]} (generalize x*)]
     (assert query)
     (assert (map? const-map))
@@ -184,19 +184,15 @@
           [constraint]
 
           (not= x* query)
-          [[x* (as-> (find-and-index-models query
-                                            dom
-                                            (keys const-map)) $
+          [[x* (as-> (indexed-match-in query
+                                       dom
+                                       (keys const-map)) $
                      ($ const-map)
-                     (map #(ctools/subst % query) $)
+                     (map #(ct/subst % query) $)
                      (set $))]]
 
           :else
           [constraint])))
-
-;
-; CONSTRAINT MAPS
-;
 
 (defn subst-known-values [m]
   {:pre [(constraint-map? m)]
@@ -210,8 +206,8 @@
          (map (fn [[k v]]
                 [(if (varname k)
                    k
-                   (ctools/subst values k))
-                 (ctools/subst values v)]))
+                   (ct/subst values k))
+                 (ct/subst values v)]))
          (into {}))))
 
 (defn develop1 [constraints]
@@ -224,11 +220,7 @@
        constraints-as-mmap
        subst-known-values))
 
-(def develop (ctools/fix develop1))
-
-;
-; QUANTIFY OVER DOMAINS
-;
+(def develop (ct/fix develop1))
 
 (defn quantify1 [m]
   {:pre [(constraint-map? m)]
@@ -243,31 +235,51 @@
                                  (= (count dom2) 2) reduced)
                          kv1))
                      nil))]
-    (when kv
+    (if kv
       (map (fn [v]
              (concat m
                      [[k #{v}]]))
-           dom))))
+           dom)
+      [m])))
+
+;
+; OPERATIONS ON METAVERSES OF CONSTRAINT COLLECTIONS
+;
 
 (defn develop-all1 [metaverse]
-  {:pre [(every? constraint-map? metaverse)]
-   :post [(every? (partial constraint-coll?) %)]}
+  {:pre [(every? constraint-coll? metaverse)]
+   :post [(set? %)
+          (every? (partial constraint-map?) %)]}
   (->> metaverse
        (map develop)
-       (mapcat #(or (quantify1 %)
-                    [%]))
+       (mapcat quantify1)
        (filter (complement empty?))
-       (map set)
+       (map constraints-as-mmap)
        set))
 
 ; the develop* functions are currently not very efficient
-(def develop-all (ctools/fix (comp develop-all1 (partial map constraints-as-mmap))))
+(def develop-all (ct/fix develop-all1))
 
-(defn find-models [x* dom]
+;
+; FINDING MODELS
+;
+
+(defn match-with [xs* dom]
+  {:pre [(coll? xs*)
+         (coll? dom)
+         (grounded? dom)]
+   :post [(every? model? %)]}
+  (->> [(map (fn [x*] [x* dom]) xs*)]
+       develop-all
+       (map constraints-as-model)))
+
+(defn match-in [x* dom]
   {:pre [(coll? dom)
          (grounded? dom)]
    :post [(every? model? %)]}
-  (->> [[[x* dom]]]
-       develop-all
-       (map constraints-as-model)
-       set))
+  (match-with [x*] dom))
+
+(def indexed-match-in
+  (ct/memoize (fn [x* dom ks]
+                    (set/index (match-in x* dom)
+                               ks))))

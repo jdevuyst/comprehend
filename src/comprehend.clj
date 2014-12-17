@@ -192,8 +192,8 @@
                        vec)
               (ct/with-cache-atom
                 (.-!cache ~s-name)
-                (ce/find-models #{~@patterns}
-                                #{(.-hs ~s-name)}))
+                (ce/match-with [~@patterns]
+                               (.-hs ~s-name)))
               )
             ; (pldb/with-db
             ;   (.-idx ~s-name)
