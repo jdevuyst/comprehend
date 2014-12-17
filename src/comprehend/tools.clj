@@ -19,7 +19,7 @@
 (defn soft-cache []
   (cache/soft-cache-factory {}))
 
-(defn memoized [!cache f & args]
+(defn memoized [f !cache & args]
   {:pre [(some? !cache)
          (fn? f)]}
   (let [k [f args]

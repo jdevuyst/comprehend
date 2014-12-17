@@ -192,10 +192,11 @@
           [constraint]
 
           (not= x* query)
-          [[x* (as-> (indexed-match-in !cache
-                                       query
-                                       dom
-                                       (keys const-map)) $
+          [[x* (as-> (ct/memoized indexed-match-in
+                                  !cache
+                                  query
+                                  dom
+                                  (keys const-map)) $
                      ($ const-map)
                      (r/map #(ct/subst % query) $)
                      (r/reduce conj! (transient #{}) $)
@@ -305,5 +306,5 @@
   (match-with !cache [x*] dom))
 
 (defn indexed-match-in [!cache x* dom ks]
-  (set/index (ct/memoized !cache match-in x* dom)
+  (set/index (match-in !cache x* dom)
              ks))
