@@ -20,6 +20,11 @@
     (let [x (variable 'x)
           y (variable 'y)
           z (variable 'z)]
+      (testing "equivalance of variables"
+        (is (= x x))
+        (is (not= x y))
+        (is (= (variable 'test) (variable 'test))))
+
       (testing "generalize"
         (is (= VarType (-> [1 2 3 4]
                            generalize
@@ -55,11 +60,6 @@
                    :query
                    generalize
                    :query))))
-
-      (testing "equivalance of variables"
-        (is (= x x))
-        (is (not= x y))
-        (is (= (variable 'test) (variable 'test))))
 
       (testing "unify-colls"
         (is (= (set (unify #{x y :lit} #{1 2 3}))
@@ -101,33 +101,21 @@
         (is (= (->> (list [x [1 2 3]] [x [2 3 4 5]]
                           [y #{6 7 8 9}]
                           [z #{1}])
-                    constraints-as-map)
+                    constraints-as-mmap)
                {x #{3 2}
                 y #{6 7 8 9}
                 z #{1}})))
 
-      (testing "constraint-map?"
-        (is (-> (list [x [1 2 3]] [x [2 3 4 5]]
-                      [y #{6 7 8 9}]
-                      [z #{1}])
-                constraints-as-map
-                constraint-map?))
-        (is (-> (list [x [1 2 3]] [x [2 3 4 5]]
-                      [y #{6 7 8 9}]
-                      [z #{1}])
-                constraint-map?
-                not)))
-
       (testing "develop"
         (is (= (-> (list [[x {y [x z]}] #{[1 {2 [1 3] :a :b}]}]
                          [{100 y} #{{100 2}}])
-                   constraints-as-map
+                   constraints-as-mmap
                    develop)
                {y #{2}, x #{1}, z #{3}}))
         (is (-> (list [[x {y [x z]}] #{[1 {2 [1 3] :a :b}]}]
                       [{100 y} #{{100 2}}]
                       [{3 x} #{{3 4}}])
-                constraints-as-map
+                constraints-as-mmap
                 develop
                 empty?)))
 
@@ -152,7 +140,7 @@
                           [{100 y} #{{100 2}}])
                     list
                     develop-all
-                    (map constraints-as-map))
+                    (map constraints-as-mmap))
                [{x #{1} y #{2} z #{3}}])))
 
       (testing "find-models"

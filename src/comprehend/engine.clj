@@ -10,25 +10,16 @@
 ; FIRST CLASS LOGICAL TERMS
 ;
 
-(defprotocol Moo
-  (equiv [_ o]))
-
 (defprotocol ILogicalTerm
   (varname [_]))
 
-(deftype Var [symb m]
-  clojure.lang.IObj
-  (withMeta [this m] (Var. symb m))
-  (meta [this] m)
-  Moo
-  (equiv [this o]
-         (= symb (varname o)))
-  clojure.lang.IHashEq
-  (hasheq [this] (hash symb))
+(deftype Var [symb]
   ILogicalTerm
   (varname [this]
            (assert symb)
            symb)
+  clojure.lang.IHashEq
+  (hasheq [this] (hash symb))
   java.lang.Object
   (equals [this o]
           (= symb (varname o)))
@@ -47,7 +38,7 @@
 (defn variable [symb]
   {:pre [symb]
    :post [(varname %)]}
-  (Var. symb {}))
+  (Var. symb))
 
 (defn grounded? [x]
   (if (coll? x)
@@ -62,6 +53,49 @@
   (and (vector? x)
        (= 2 (count x))
        (-> x second coll?)))
+
+(defn- constraint-coll? [x]
+  (and (or (nil? x) (coll? x))
+       (every? constraint-pair? x)))
+
+(defn- constraint-map? [x]
+  (and (map? x) (constraint-coll? x)))
+
+(defn model? [x]
+  (and (map? x)
+       (->> x keys (every? varname))))
+
+(defn constraints-as-mmap [constraints]
+  {:pre [(constraint-coll? constraints)]
+   :post [(constraint-map? %)]}
+  (reduce (fn [m [k v]]
+            (let [r (ctools/partial-intersection (m k) v)]
+              (if (empty? r)
+                (reduced {})
+                (assoc m k r))))
+          {}
+          constraints))
+
+(defn constraints-as-model [constraints]
+  {:pre [(constraint-coll? constraints)
+         (->> constraints
+              (map first)
+              (every? varname))
+         (->> constraints
+              (map second)
+              (map count)
+              (every? (partial = 1)))
+         (->> constraints
+              (map first)
+              frequencies
+              vals
+              (every? (partial = 1)))]
+   :post [(model? %)]}
+   (reduce (fn [m [k v]]
+
+             (assoc m k (first v)))
+           {}
+           constraints))
 
 ;
 ; GENERALIZATIONS
@@ -98,7 +132,7 @@
          (-> coll* map? not)
          (-> coll map? not)
          (grounded? coll)]
-   :post [(every? constraint-pair? %)]}
+   :post [(constraint-coll? %)]}
   (map (fn [el*] [el* coll])
        coll*))
 
@@ -107,20 +141,20 @@
          (sequential? l)
          (grounded? l)
          (= (count l*) (count l))]
-   :post [(every? constraint-pair? %)]}
+   :post [(constraint-coll? %)]}
   (mapcat unify l* l))
 
 (defn unify-maps [m* m]
   {:pre [(map? m*)
          (map? m)
          (grounded? m)]
-   :post [(every? constraint-pair? %)]}
+   :post [(constraint-coll? %)]}
   (map (fn [kv] [kv (seq m)])
        (seq m*)))
 
 (defn unify [x* x]
   {:pre [(grounded? x)]
-   :post [(every? constraint-pair? %)]}
+   :post [(constraint-coll? %)]}
   (cond (sequential? x*) (if (and (sequential? x)
                                   (= (count x*)
                                      (count x)))
@@ -141,15 +175,15 @@
 
 (defn t-transform [f constraints]
   {:pre [(fn? f)
-         (every? constraint-pair? constraints)]
-   :post [(every? constraint-pair? %)]}
+         (constraint-coll? constraints)]
+   :post [(constraint-coll? %)]}
   (mapcat (fn [[x* x :as v]]
             (or (f x* x)
                 [v]))
           constraints))
 
 (defn decompose-dom-terms [x* dom]
-  {:post [(every? constraint-pair? %)]}
+  {:post [(constraint-coll? %)]}
   (when (and (= 1 (count dom))
              (not (varname x*)))
     (unify x* (first dom))))
@@ -191,22 +225,6 @@
 ; CONSTRAINT MAPS
 ;
 
-(defn constraint-map? [x]
-  (and (map? x)
-       (every? constraint-pair? x)))
-
-(defn constraints-as-map [constraints]
-  {:pre [(every? constraint-pair? constraints)]
-   :post [(constraint-map? %)]}
-  (reduce (fn [m [k v]]
-            (let [r (ctools/partial-intersection (m k) v)]
-              (assert r)
-              (if (empty? r)
-                (reduced {})
-                (assoc m k r))))
-          {}
-          constraints))
-
 (defn subst-known-values [m]
   {:pre [(constraint-map? m)]
    :post [(constraint-map? %)]}
@@ -224,13 +242,13 @@
          (into {}))))
 
 (defn develop1 [constraints]
-  {:pre [(every? constraint-pair? constraints)]
+  {:pre [(constraint-coll? constraints)]
    :post [(constraint-map? %)]}
   (->> constraints
        (t-transform decompose-dom-terms)
        (t-transform extract-contradictory-literals)
        (t-transform simplify-domains) ; XXX call this less often
-       constraints-as-map
+       constraints-as-mmap
        subst-known-values))
 
 (def develop (ctools/fix develop1))
@@ -241,7 +259,7 @@
 
 (defn quantify1 [m]
   {:pre [(constraint-map? m)]
-   :post [(every? (partial every? constraint-pair?) %)]}
+   :post [(every? (partial constraint-coll?) %)]}
   (let [[k dom :as kv]
         (->> m
              (filter (fn [[k dom]] (> (count dom) 1)))
@@ -260,7 +278,7 @@
 
 (defn develop-all1 [metaverse]
   {:pre [(every? constraint-map? metaverse)]
-   :post [(every? (partial every? constraint-pair?) %)]}
+   :post [(every? (partial constraint-coll?) %)]}
   (->> metaverse
        (map develop)
        (mapcat #(or (quantify1 %)
@@ -270,23 +288,14 @@
        set))
 
 ; the develop* functions are currently not very efficient
-(def develop-all (ctools/fix (comp develop-all1 (partial map constraints-as-map))))
-
-(defn model? [x]
-  (and (map? x)
-       (->> x keys (every? varname))))
+(def develop-all (ctools/fix (comp develop-all1 (partial map constraints-as-mmap))))
 
 (defn find-models [x* x]
   {:pre [(grounded? x)]
    :post [(every? model? %)]}
   (->> [[[x* [x]]]]
        develop-all
-       (map constraints-as-map)
-       (map #(->> %
-                  ; (filter (fn [[k v]] (varname k)))
-                  (filter (fn [[k v]] (= 1 (count v))))
-                  (map (fn [[k v]] [k (first v)]))
-                  (into {})))
+       (map constraints-as-model)
        set))
 
 (defn match-in [x* dom]
