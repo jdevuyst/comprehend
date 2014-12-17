@@ -1,15 +1,15 @@
 (ns comprehend.engine-test
   (:require [clojure.test :refer :all]
+            [comprehend.tools :as ct]
             [comprehend.engine :refer :all]
-            [comprehend.tools :as ctools]
             [clojure.walk :as w]
             [clojure.tools.trace :refer [deftrace trace trace-ns]]))
 
 (def VarType comprehend.engine.Var)
 
 (deftest all-tests
-  (ctools/with-cache-atom
-    (atom (ctools/soft-cache))
+  (ct/with-cache-atom
+    (atom (ct/soft-cache))
 
     (testing "grounded?"
       (is (grounded? 1))
@@ -60,6 +60,17 @@
                    :query
                    generalize
                    :query))))
+
+    (testing "unification-type"
+      (is (= (unification-type {1 2 3 4}) :map))
+      (is (= (unification-type [1 2 3 4])
+             (unification-type '(1 2 3 4))
+             (unification-type (map identity {1 2 3 4 5 6 7 8}))
+             [:list-like 4]))
+      (is (= (unification-type #{1 2 3 4}) :set-like))
+      (is (= (unification-type nil)
+             (unification-type 1)
+             :not-a-coll)))
 
       (testing "unify colls"
         (is (= (set (unify #{x y :lit} #{1 2 3}))

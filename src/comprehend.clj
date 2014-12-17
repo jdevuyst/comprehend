@@ -1,10 +1,10 @@
 (ns comprehend
   (:require [clojure.walk :as w]
             [comprehend.engine :as ce]
-            [comprehend.tools :as ctools]
+            [comprehend.tools :as ct]
             [clojure.tools.trace :refer [deftrace trace trace-ns]]))
 
-(ctools/assert-notice)
+(ct/assert-notice)
 
 (declare indexed-set indexed-set?
          unbound-symbols describe annotate-ungrounded-terms
@@ -61,7 +61,7 @@
 (defn index [hs] ; XXX new
   {:pre [(set? hs)]
    :post [(indexed-set? %)]}
-  (Set. hs (atom (ctools/soft-cache)) {}))
+  (Set. hs (atom (ct/soft-cache)) {}))
 
 (defn unindex [s] ; XXX new
   {:pre [(indexed-set? s)]
@@ -190,7 +190,7 @@
                        (mapcat (fn [x]
                                  [x (ce/variable x)]))
                        vec)
-              (ctools/with-cache-atom
+              (ct/with-cache-atom
                 (.-!cache ~s-name)
                 (ce/find-models #{~@patterns}
                                 #{(.-hs ~s-name)}))

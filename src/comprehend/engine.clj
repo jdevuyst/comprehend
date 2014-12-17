@@ -123,25 +123,32 @@
 
 (def ^:private falsum [(variable :falsum) #{}])
 
+(defn unification-type [x]
+  (cond (map? x) :map
+        (sequential? x) [:list-like (count x)]
+        (coll? x) :set-like
+        :else :not-a-coll))
+
 (defn unify [x* x]
   {:pre [(grounded? x)]
    :post [(constraint-coll? %)]}
-  (cond (sequential? x*) (if (and (sequential? x)
-                                  (= (count x*)
-                                     (count x)))
-                           (mapcat unify x* x)
-                           [falsum])
-        (map? x*) (if (map? x)
-                    (map (fn [kv] [kv (seq x)])
-                         x*)
-                    [falsum])
-        (coll? x*) (if (and (coll? x)
-                            (-> x sequential? not)
-                            (-> x map? not))
-                     (map (fn [el*] [el* x])
-                          x*)
-                     [falsum])
-        :else [[x* #{x}]]))
+  (let [t (unification-type x*)]
+    (cond (= :not-a-coll t)
+          [[x* #{x}]]
+
+          (not= t (unification-type x))
+          [falsum]
+
+          (= :set-like t)
+          (map (fn [el*] [el* x])
+               x*)
+
+          (= :map t)
+          (map (fn [kv] [kv (seq x)])
+               x*)
+
+          :else
+          (mapcat unify x* x))))
 
 ;
 ; OPERATIONS ON SEQUENCES OF CONSTRAINT PAIRS
@@ -150,13 +157,13 @@
 (defn decompose-dom-terms [[x* dom :as constraint]]
   {:post [(constraint-coll? %)]}
   (if (and (= 1 (count dom))
-             (not (varname x*)))
+           (not (varname x*)))
     (unify x* (first dom))
     [constraint]))
 
 (defn extract-contradictory-literals [[x* dom :as constraint]]
   (if (and (-> x* coll? not)
-             (-> x* varname not))
+           (-> x* varname not))
     (if (contains? (ctools/as-set dom) x*)
       []
       [falsum])

@@ -12,8 +12,11 @@
                                   [org.clojure/tools.trace "0.7.8"]]
                    :injections [(require '[clojure.set :as set])
                                 (require '[clojure.walk :as w])
-                                (require '[comprehend-test :as ct])
+                                (require '[comprehend.tools :as ct])
+                                (require '[comprehend :as c])
+                                (require '[comprehend.tools-test :as ct-test])
                                 ; (require '[comprehend.mutable-test :as cmt])
-                                (require '[comprehend.engine-test :as cet])
+                                (require '[comprehend.engine-test :as ce-test])
+                                (require '[comprehend-test :as c-test])
                                 (require '[comprehend.benchmark :as benchmark])
                                 (require '[clojure.tools.trace :refer [deftrace trace trace-ns]])]}})

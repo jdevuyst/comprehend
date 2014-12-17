@@ -40,7 +40,7 @@
           r)))))
 
 ;
-; MISC
+; FIXPOINTS
 ;
 
 (defn fix [f] ; XXX moved
@@ -52,12 +52,9 @@
 (defmacro fixpoint [[name val] expr] ; XXX moved
   `((fix (fn [~name] ~expr)) ~val))
 
-(defn subst [m structure]
-  {:pre [(map? m)]}
-  (w/postwalk #(if-let [v (find m %)]
-                 (val v)
-                 %)
-              structure))
+;
+; OPERATIONS ON COLLECTIONS
+;
 
 (defn as-set [coll]
   {:pre [(coll? coll)]
@@ -75,3 +72,10 @@
   (cond (and s1 s2) (set/intersection (as-set s1) (as-set s2))
         s1 s1
         :else s2))
+
+(defn subst [m structure]
+  {:pre [(map? m)]}
+  (w/postwalk #(if-let [v (find m %)]
+                 (val v)
+                 %)
+              structure))
