@@ -1,7 +1,8 @@
 (ns comprehend.engine
   (:require [comprehend.tools :as ctools]
             [clojure.set :as set]
-            [clojure.walk :as w]))
+            [clojure.walk :as w]
+            [clojure.tools.trace :refer [deftrace trace trace-ns]]))
 
 (ctools/assert-notice)
 
@@ -30,7 +31,6 @@
            symb)
   java.lang.Object
   (equals [this o]
-          ; (println :is-equal? this o (= symb (varname o)))
           (= symb (varname o)))
   (toString [this]
             (.toString symb))
@@ -62,10 +62,8 @@
   (and (vector? x)
        (= 3 (count x))
        (let [[a b c] x]
-         (or (and (= :dom a)
-                  (coll? c))
-             (and (= :val a)
-                  (varname b))))))
+         (and (= :dom a)
+              (coll? c)))))
 
 ;
 ; GENERALIZATIONS
@@ -160,27 +158,14 @@
              (not (varname x*)))
     (unify x* (first dom))))
 
-(defn extract-known-values [t x* dom]
+(defn extract-contradictory-literals [t x dom]
   (when (and (= :dom t)
-             (= 1 (count dom))
-             (varname x*))
-    [[:val x* (first dom)]]))
-
-(let [bottom (variable 'bottom)]
-  (defn extract-empty-domains [t x* dom]
-    (when (and (= :dom t)
-               (-> dom count zero?))
-      [[:val bottom true] [:val bottom false]]))
-
-
-  (defn extract-contradictory-literals [t x dom]
-    (when (and (= :dom t)
-               (-> x coll? not)
-               (-> x varname not))
-      (let [s (ctools/as-set dom)]
-        (if (contains? s x)
-          []
-          [[:val bottom true] [:val bottom false]])))))
+             (-> x coll? not)
+             (-> x varname not))
+    (let [s (ctools/as-set dom)]
+      (if (contains? s x)
+        []
+        [[:dom x #{}]]))))
 
 (declare find-models)
 
@@ -230,31 +215,36 @@
   {:pre [(every? constraint-triple? triples)]
    :post [(constraint-map? %)]}
   (reduce (fn [m [t k v]]
-            (case t
-              :val (condp = (get-in m [t k] ::not-found)
-                     ::not-found (assoc-in m [t k] v)
-                     v m
-                     (reduced {}))
-              (update-in m
-                         [t k]
-                         ctools/partial-intersection
-                         v)))
+            (let [r (ctools/partial-intersection (get-in m [t k]) v)]
+              (assert r)
+              (if (empty? r)
+                (reduced {})
+                (assoc-in m [t k] r))))
           {}
           triples))
 
 (defn subst-known-values [m]
   {:pre [(constraint-map? m)]
    :post [(constraint-map? %)]}
-  {:val (:val m)
-   :dom (ctools/subst (:val m) (:dom m))})
+  (let [values (->> m
+                    :dom
+                    (filter (fn [[k v]] (varname k)))
+                    (filter (fn [[k v]] (= 1 (count v))))
+                    (map (fn [[k v]] [k (first v)]))
+                    (into {}))]
+    {:dom (->> (:dom m)
+               (map (fn [[k v]]
+                      [(if (varname k)
+                         k
+                         (ctools/subst values k))
+                       (ctools/subst values v)]))
+               (into {}))}))
 
 (defn develop1 [constraints]
   {:pre [(every? constraint-triple? constraints)]
    :post [(constraint-map? %)]}
   (->> constraints
        (t-transform decompose-dom-terms)
-       (t-transform extract-known-values)
-       (t-transform extract-empty-domains)
        (t-transform extract-contradictory-literals)
        (t-transform simplify-domains) ; XXX call this less often
        triples-to-map
@@ -281,7 +271,6 @@
                      nil))
         triples (map-to-triples m)]
     (when kv
-      ;(println :quantify1 k :over dom :where (:val m))
       (map (fn [v]
              (concat triples
                      [[:dom k #{v}]]))
@@ -311,7 +300,12 @@
   (->> [[[:dom x* [x]]]]
        develop-all
        (map triples-to-map)
-       (map :val)
+       (map #(->> %
+                  :dom
+                  ; (filter (fn [[k v]] (varname k)))
+                  (filter (fn [[k v]] (= 1 (count v))))
+                  (map (fn [[k v]] [k (first v)]))
+                  (into {})))
        set))
 
 (defn match-in [x* dom]

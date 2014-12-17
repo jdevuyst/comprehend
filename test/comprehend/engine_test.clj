@@ -100,32 +100,32 @@
       (testing "sequences of triples to maps"
         (is (= (->> (list [:dom x [1 2 3]] [:dom x [2 3 4 5]]
                           [:dom y #{6 7 8 9}]
-                          [:val z 1])
+                          [:dom z #{1}])
                     triples-to-map)
-               {:val {z 1}
-                :dom {x #{3 2}
-                      y #{6 7 8 9}}})))
+               {:dom {x #{3 2}
+                      y #{6 7 8 9}
+                      z #{1}}})))
 
       (testing "maps to sequences of triples"
         (is (= (->> (list [:dom x [1 2 3]] [:dom x [2 3 4 5]]
                           [:dom y #{6 7 8 9}]
-                          [:val z 1])
+                          [:dom z #{1}])
                     triples-to-map
                     map-to-triples
                     set)
                #{[:dom x #{2 3}]
                  [:dom y #{6 7 8 9}]
-                 [:val z 1]})))
+                 [:dom z #{1}]})))
 
       (testing "constraint-map?"
         (is (-> (list [:dom x [1 2 3]] [:dom x [2 3 4 5]]
                       [:dom y #{6 7 8 9}]
-                      [:val z 1])
+                      [:dom z #{1}])
                 triples-to-map
                 constraint-map?))
         (is (-> (list [:dom x [1 2 3]] [:dom x [2 3 4 5]]
                       [:dom y #{6 7 8 9}]
-                      [:val z 1])
+                      [:dom z #{1}])
                 constraint-map?
                 not)))
 
