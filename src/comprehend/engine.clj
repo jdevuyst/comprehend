@@ -45,20 +45,20 @@
     (every? grounded? x)
     (not (varname x))))
 
-; XXX {:a :b x y} and {:b :a x y}
-; do not currenty have identical queries
-; neither do [x y] and [y x]
 (defn generalize [x*]
-  (let [!m (atom {})
-        f (fn [y]
-            (let [y* (-> @!m count variable)]
-              (swap! !m assoc y* y)
-              y*))]
-    {:query (w/prewalk #(if (grounded? %)
-                          (f %)
-                          %)
+  (let [!consts (atom {})
+        !vars (atom {})
+        !counter (atom 0)
+        f (fn [!m y]
+            (or (@!m y)
+                (let [y* (variable [::temp (swap! !counter inc)])]
+                  (swap! !m assoc y y*)
+                  y*)))]
+    {:query (w/prewalk #(cond (varname %) (f !vars %)
+                              (grounded? %) (f !consts %)
+                              :else %)
                        x*)
-     :const-map @!m}))
+     :const-map (set/map-invert @!consts)}))
 
 ;
 ; CONSTRAINT STRUCTURES
@@ -191,7 +191,7 @@
     (cond (varname query)
           [constraint]
 
-          (not= x* query)
+          (-> const-map count pos?)
           [[x* (as-> (ct/memoized indexed-match-in
                                   !cache
                                   query
@@ -306,5 +306,6 @@
   (match-with !cache [x*] dom))
 
 (defn indexed-match-in [!cache x* dom ks]
+  ; (println :index (hash dom) (count dom) x* ks)
   (set/index (match-in !cache x* dom)
              ks))
