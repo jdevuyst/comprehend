@@ -188,22 +188,20 @@
   (let [{:keys [query const-map]} (generalize x*)]
     (assert query)
     (assert (map? const-map))
-    (cond (varname query)
-          [constraint]
-
-          (-> const-map count pos?)
-          [[x* (as-> (ct/memoized indexed-match-in
-                                  !cache
-                                  query
-                                  dom
-                                  (keys const-map)) $
-                     ($ const-map)
-                     (r/map #(ct/subst % query) $)
-                     (r/reduce conj! (transient #{}) $)
-                     (persistent! $))]]
-
-          :else
-          [constraint])))
+    (if (and (-> query varname not)
+             (-> const-map count pos?)
+             (not= x* (-> dom meta ::simplified)))
+      [[x* (as-> (ct/memoized indexed-match-in
+                              !cache
+                              query
+                              dom
+                              (keys const-map)) $
+                 ($ const-map)
+                 (r/map #(ct/subst % query) $)
+                 (r/reduce conj! (transient #{}) $)
+                 (persistent! $)
+                 (with-meta $ {::simplified x*}))]]
+      [constraint])))
 
 (defn subst-known-values [m]
   {:pre [(constraint-map? m)]
@@ -306,6 +304,6 @@
   (match-with !cache [x*] dom))
 
 (defn indexed-match-in [!cache x* dom ks]
-  ; (println :index (hash dom) (count dom) x* ks)
+  ; (println :index (hash dom) (count dom) x*)
   (set/index (match-in !cache x* dom)
              ks))
