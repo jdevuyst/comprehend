@@ -43,7 +43,7 @@
                            (.equiv hs (.-hs o))
                            (.equiv markers (.-markers o)))))
   (disjoin [this o] (Set. (.disjoin hs o)
-                          (atom (conjd-root-el @!cache o))
+                          (atom (disjd-root-el @!cache o))
                           (reduce (fn [m [k v]]
                                     (assoc m k (disj v o)))
                                   {}
