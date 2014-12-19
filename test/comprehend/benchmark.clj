@@ -17,8 +17,8 @@
 ;
 ; RESULTS
 ; Comprehend was found to be always faster than (3).
-; Comprehend was found to be faster than (4) for N > 30.
-; (3) was found to be faster than (4) for N > 40.
+; Comprehend was found to be faster than (4) for N > 25.
+; (3) was found to be faster than (4) for N > 35.
 ;
 ; In old PLDB-based implementation (1) was faster than (3) and (4) for N > 50.
 ;
@@ -63,11 +63,11 @@
     (reset! !S (reduce conj (c/indexed-set) @!G))
 
     (reset! !M (c/indexed-set (reduce (fn [m [a b :as v]]
-                                              (when (= 2 (count v))
-                                                (assoc m a (conj (get m a #{})
-                                                                 b))))
-                                            {}
-                                            @!G)))
+                                        (when (= 2 (count v))
+                                          (assoc m a (conj (get m a #{})
+                                                           b))))
+                                      {}
+                                      @!G)))
 
     (print "Finding paths using comprehend and the set of pairs... ")
 
@@ -143,13 +143,18 @@
 (deftest benchmark
   (testing "Benchmark"
     (let [prev-assert-val *assert*]
-      (println "Reloading and disabling assertions...")
-      (set! *assert* false)
-      (reload)
+      (try
+        (println "Reloading and disabling assertions...")
+        (set! *assert* false)
+        (reload)
 
-      (run-benchmark default-N)
+        (run-benchmark default-N)
 
-      (when prev-assert-val
         (set! *assert* prev-assert-val)
-        (println "Re-enabling assertions...")
-        (reload)))))
+        (when *assert*
+          (println "Re-enabling assertions...")
+          (reload))
+
+        (catch Exception x
+          (set! *assert* prev-assert-val)
+          (throw x))))))
