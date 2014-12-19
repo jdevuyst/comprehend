@@ -49,110 +49,116 @@
             (swap! !edges conj! e)))))
     (persistent! @!edges)))
 
-
 (defn run-benchmark [n]
-  (let [!G (atom nil)
-        !S (atom nil)
-        !M (atom nil)
-        !v1 (atom nil)
-        !v2 (atom nil)
-        !v3 (atom nil)
-        !v4 (atom nil)]
-    (reset! !G (vec (make-graph n n)))
+  (testing (str "Benchmark with N=" n)
+    (let [!G (atom nil)
+          !S (atom nil)
+          !M (atom nil)
+          !v1 (atom nil)
+          !v2 (atom nil)
+          !v3 (atom nil)
+          !v4 (atom nil)]
+      (reset! !G (vec (make-graph n n)))
 
-    (reset! !S (reduce conj (c/indexed-set) @!G))
+      (reset! !S (reduce conj (c/indexed-set) @!G))
 
-    (reset! !M (c/indexed-set (reduce (fn [m [a b :as v]]
-                                        (when (= 2 (count v))
-                                          (assoc m a (conj (get m a #{})
-                                                           b))))
-                                      {}
-                                      @!G)))
+      (reset! !M (c/indexed-set (reduce (fn [m [a b :as v]]
+                                          (when (= 2 (count v))
+                                            (assoc m a (conj (get m a #{})
+                                                             b))))
+                                        {}
+                                        @!G)))
 
-    (print "Finding paths using comprehend and the set of pairs... ")
+      (print "Finding paths using comprehend and the set of pairs... ")
+      (flush)
 
-    (reset! !v1 (time (vec (c/comprehend
-                             @!S
-                             (edge a b) (edge b c) (edge c d) (edge d e)
-                             [a b c d e]))))
+      (reset! !v1 (time (vec (c/comprehend
+                               @!S
+                               (edge a b) (edge b c) (edge c d) (edge d e)
+                               [a b c d e]))))
 
-    (print "Finding paths using comprehend and the map in the set... ")
+      (print "Finding paths using comprehend and the map in the set... ")
+      (flush)
 
-    (reset! !v2 (time (vec (c/comprehend
-                             @!M
-                             {a #{b} b #{c} c #{d} d #{e}}
-                             [a b c d e]))))
+      (reset! !v2 (time (vec (c/comprehend
+                               @!M
+                               {a #{b} b #{c} c #{d} d #{e}}
+                               [a b c d e]))))
 
-    (print "Finding paths using core.logic's membero and unification without indexes... ")
+      (print "Finding paths using core.logic's membero and unification without indexes... ")
+      (flush)
 
-    (reset! !v3 (time (vec (l/run* [a b c d e]
-                                   (l/membero (edge a b) @!G)
-                                   (l/membero (edge b c) @!G)
-                                   (l/membero (edge c d) @!G)
-                                   (l/membero (edge d e) @!G)))))
+      (reset! !v3 (time (vec (l/run* [a b c d e]
+                                     (l/membero (edge a b) @!G)
+                                     (l/membero (edge b c) @!G)
+                                     (l/membero (edge c d) @!G)
+                                     (l/membero (edge d e) @!G)))))
 
-    (print "Finding paths using for, filter, and argument destructuring... ")
+      (print "Finding paths using for, filter, and argument destructuring... ")
+      (flush)
 
-    (reset! !v4 (time (let [E (vec (filter #(= 2 (count %)) @!G))]
-                        (vec (->> (for [e1 E e2 E e3 E e4 E]
-                                    [e1 e2 e3 e4])
-                                  (filter (fn [[[v1 v2a] [v2b v3a] [v3b v4a] [v4b v5]]]
-                                            (and (= v2a v2b)
-                                                 (= v3a v3b)
-                                                 (= v4a v4b))))
-                                  (map (fn [[[v1 v2a] [v2b v3a] [v3b v4a] [v4b v5]]]
-                                         [v1 v2a v3a v4a v5])))))))
+      (reset! !v4 (time (let [E (vec (filter #(= 2 (count %)) @!G))]
+                          (vec (->> (for [e1 E e2 E e3 E e4 E]
+                                      [e1 e2 e3 e4])
+                                    (filter (fn [[[v1 v2a] [v2b v3a] [v3b v4a] [v4b v5]]]
+                                              (and (= v2a v2b)
+                                                   (= v3a v3b)
+                                                   (= v4a v4b))))
+                                    (map (fn [[[v1 v2a] [v2b v3a] [v3b v4a] [v4b v5]]]
+                                           [v1 v2a v3a v4a v5])))))))
 
-    (is (= 1 (->> @!M (filter map?) count)))
-    (is (= n
-           (->> @!G
-                (map count)
-                (filter (partial = 2))
-                count)
-           (->> @!S
-                (map count)
-                (filter (partial = 2))
-                count)
-           (->> @!M
-                (filter map?)
-                first
-                vals
-                (map count)
-                (reduce + 0))))
-    (is (= (count @!v1) (count @!v2) (count @!v3) (count @!v4)))
-    (let [s1 (set @!v1)
-          s2 (set @!v2)
-          s3 (set @!v3)]
-      (is (= s3 (set @!v4)))
-      (is (= s1 s3))
-      (is (= s2 s3))
-      (when-not (= s1 s3)
-        (println "s1 - s3: " (set/difference s1 s3))
-        (println "s3 - s1: " (set/difference s3 s1)))
-      (when-not (= s2 s3)
-        (println "s2 - s3: " (set/difference s2 s3))
-        (println "s3 - s2: " (set/difference s3 s2))))
-    (is (> (count @!v1) 0) "Try generating more edges")))
+      (is (= 1 (->> @!M (filter map?) count)))
+      (is (= n
+             (->> @!G
+                  (map count)
+                  (filter (partial = 2))
+                  count)
+             (->> @!S
+                  (map count)
+                  (filter (partial = 2))
+                  count)
+             (->> @!M
+                  (filter map?)
+                  first
+                  vals
+                  (map count)
+                  (reduce + 0))))
+      (is (= (count @!v1) (count @!v2) (count @!v3) (count @!v4)))
+      (let [s1 (set @!v1)
+            s2 (set @!v2)
+            s3 (set @!v3)]
+        (is (= s3 (set @!v4)))
+        (is (= s1 s3))
+        (is (= s2 s3))
+        (when-not (= s1 s3)
+          (println "s1 - s3: " (set/difference s1 s3))
+          (println "s3 - s1: " (set/difference s3 s1)))
+        (when-not (= s2 s3)
+          (println "s2 - s3: " (set/difference s2 s3))
+          (println "s3 - s2: " (set/difference s3 s2))))
+      (is (> (count @!v1) 0) "Try generating more edges"))))
+
+(deftest benchmark-test (run-benchmark 50))
 
 (let [this-ns-name (ns-name *ns*)]
   (defn reload []
-    (require [this-ns-name] :reload-all)))
+    (require [this-ns-name] :reload-all))
 
-(def default-N 50)
-
-(deftest benchmark
-  (testing "Benchmark"
+  (defn benchmark []
     (let [prev-assert-val *assert*]
       (try
-        (println "Reloading and disabling assertions...")
+        (print "Reloading with assertions disabled... ")
+        (flush)
         (set! *assert* false)
         (reload)
+        (println "done.")
 
-        (run-benchmark default-N)
+        (run-tests this-ns-name)
+        (newline)
 
         (set! *assert* prev-assert-val)
         (when *assert*
-          (println "Re-enabling assertions...")
+          (println "Re-enabling assertions:")
           (reload))
 
         (catch Exception x
