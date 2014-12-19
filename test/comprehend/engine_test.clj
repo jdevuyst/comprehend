@@ -3,11 +3,12 @@
             [comprehend.tools :as ct]
             [comprehend.engine :refer :all]
             [clojure.walk :as w]
+            [clojure.core.cache :as cache]
             [clojure.tools.trace :refer [deftrace trace trace-ns]]))
 
 (def VarType comprehend.engine.Var)
 
-(def !cache (atom (ct/soft-cache)))
+(def !cache (atom (cache/soft-cache-factory {})))
 
 (deftest all-tests
   (testing "grounded?"

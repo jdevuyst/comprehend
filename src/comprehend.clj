@@ -2,7 +2,7 @@
   (:require [clojure.walk :as w]
             [comprehend.engine :as ce]
             [comprehend.tools :as ct]
-            [clojure.tools.trace :refer [deftrace trace trace-ns]]))
+            [clojure.core.cache :as cache]))
 
 (ct/assert-notice)
 
@@ -14,6 +14,15 @@
 ;; PUBLIC API
 ;;
 
+(defprotocol CacheProtocolExtension
+  (conjd-root-el [_ v])
+  (disjd-root-el [_ v]))
+
+(extend-type clojure.core.cache.SoftCache
+  CacheProtocolExtension
+  (conjd-root-el [c v] c)
+  (disjd-root-el [c v] c))
+
 (deftype Set [hs !cache markers]
   clojure.lang.IHashEq
   (hasheq [this] (hash-combine (.hasheq hs)
@@ -23,7 +32,7 @@
   clojure.lang.IPersistentSet
   (seq [this] (.seq hs))
   (cons [this o] (Set. (.cons hs o)
-                       (atom @!cache)
+                       (atom (conjd-root-el @!cache o))
                        (reduce (fn [m [k v]]
                                  (assoc m k (conj v o)))
                                {}
@@ -34,7 +43,7 @@
                            (.equiv hs (.-hs o))
                            (.equiv markers (.-markers o)))))
   (disjoin [this o] (Set. (.disjoin hs o)
-                          (atom @!cache)
+                          (atom (conjd-root-el @!cache o))
                           (reduce (fn [m [k v]]
                                     (assoc m k (disj v o)))
                                   {}
@@ -58,10 +67,12 @@
 (defn indexed-set? [x]
   (= Set (type x)))
 
-(defn index [hs] ; XXX new
-  {:pre [(set? hs)]
-   :post [(indexed-set? %)]}
-  (Set. hs (atom (ct/soft-cache)) {}))
+(defn index ; XXX new
+  ([hs] (index hs (cache/soft-cache-factory {})))
+  ([hs cache]
+   {:pre [(set? hs)]
+    :post [(indexed-set? %)]}
+   (Set. hs (atom cache) {})))
 
 (defn unindex [s] ; XXX new
   {:pre [(indexed-set? s)]

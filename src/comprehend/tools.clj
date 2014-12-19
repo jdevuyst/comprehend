@@ -13,11 +13,8 @@
 (assert-notice)
 
 ;
-; CACHE
+; CORE.CACHE BASED MEMOIZATION
 ;
-
-(defn soft-cache []
-  (cache/soft-cache-factory {}))
 
 (defn memoized [!cache f & args]
   {:pre [(some? !cache)
