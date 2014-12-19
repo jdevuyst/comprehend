@@ -1,5 +1,6 @@
 (ns comprehend.examples.theorem-prover
   (require [comprehend :as c]
+           [comprehend.tools :as ct]
            [clojure.math.combinatorics :as combo]
            [clojure.test :refer :all]
            [clojure.pprint]))
@@ -57,7 +58,7 @@
         forms))
 
 (defn find-model [form]
-  (first ((c/fix apply-rules) [(tableau form)])))
+  (first ((ct/fix apply-rules) [(tableau form)])))
 
 (defn theorem? [form]
   (not (find-model [:not form])))
