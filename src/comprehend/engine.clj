@@ -191,7 +191,8 @@
     (if (and (-> query varname not)
              (-> const-map count pos?)
              (not= x* (-> dom meta ::simplified)))
-      [[x* (as-> (ct/memoized indexed-match-in
+      [[x* (as-> (ct/memoized !cache
+                              indexed-match-in
                               !cache
                               query
                               dom
@@ -304,6 +305,6 @@
   (match-with !cache [x*] dom))
 
 (defn indexed-match-in [!cache x* dom ks]
-  ; (println :index (hash dom) (count dom) x*)
+  ; (println (str :X (hash [!cache dom]) \: (hash [x* ks])))
   (set/index (match-in !cache x* dom)
              ks))

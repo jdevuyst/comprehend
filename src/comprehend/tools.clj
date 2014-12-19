@@ -19,18 +19,22 @@
 (defn soft-cache []
   (cache/soft-cache-factory {}))
 
-(defn memoized [f !cache & args]
+(defn memoized [!cache f & args]
   {:pre [(some? !cache)
          (fn? f)]}
-  (let [k [f args]
-        r (cache/lookup @!cache k ::not-found)]
-    (if (identical? ::not-found r)
-      (let [r (apply f !cache args)]
-        (swap! !cache cache/miss k r)
-        r)
-      (do
-        (swap! !cache cache/hit k)
-        r))))
+  @(let [k [f args]
+         c @!cache
+         !r (cache/lookup c k)]
+     (if !r
+       (do
+         (compare-and-set! !cache c (cache/hit c k))
+         !r)
+       (cache/lookup (swap! !cache
+                            (fn [c]
+                              (if (cache/has? c k)
+                                c
+                                (cache/miss c k (delay (apply f args))))))
+                     k))))
 
 ;
 ; FIXPOINTS

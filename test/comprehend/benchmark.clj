@@ -58,22 +58,16 @@
         !v2 (atom nil)
         !v3 (atom nil)
         !v4 (atom nil)]
-    (print (str "Constructing a graph with N=" n "... "))
+    (reset! !G (vec (make-graph n n)))
 
-    (reset! !G (time (vec (make-graph n n))))
+    (reset! !S (reduce conj (c/indexed-set) @!G))
 
-    (print "Constructing an equivalent indexed set of pairs... ")
-
-    (reset! !S (time (reduce conj (c/indexed-set) @!G)))
-
-    (print "Constructing an equivalent map in an indexed set... ")
-
-    (reset! !M (time (c/indexed-set (reduce (fn [m [a b :as v]]
+    (reset! !M (c/indexed-set (reduce (fn [m [a b :as v]]
                                               (when (= 2 (count v))
                                                 (assoc m a (conj (get m a #{})
                                                                  b))))
                                             {}
-                                            @!G))))
+                                            @!G)))
 
     (print "Finding paths using comprehend and the set of pairs... ")
 
@@ -149,7 +143,7 @@
 (deftest benchmark
   (testing "Benchmark"
     (let [prev-assert-val *assert*]
-      (println "Disabling assertions...")
+      (println "Reloading and disabling assertions...")
       (set! *assert* false)
       (reload)
 
