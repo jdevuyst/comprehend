@@ -2,7 +2,8 @@
   (:require [clojure.walk :as w]
             [comprehend.engine :as ce]
             [comprehend.tools :as ct]
-            [clojure.core.cache :as cache]))
+            [clojure.core.cache :as cache]
+            [clojure.tools.trace :refer [deftrace trace trace-ns]]))
 
 (ct/assert-notice)
 
@@ -114,32 +115,6 @@
                      (map (juxt keyword symbol))
                      (into {}))))
 
-(comment defmacro up
-  ([x] `(apply* ~(cursor x) #'up*))
-  ([x n] (let [x' (gensym "up_x__")]
-           `(apply* ~(cursor x)
-                    (fn [~x']
-                      ~(nth (iterate (partial list mapcat `#'up*)
-                                     [x'])
-                            n))))))
-
-(comment defmacro top [x]
-  `(apply* ~(cursor x) #'top*))
-
-(comment defmacro subst [form new-val]
-  `(->> (#'paths ~(cursor form))
-        (map (juxt identity (constantly ~new-val)))
-        (into {})))
-
-(comment defmacro oust [form]
-  `(subst ~form ::remove))
-
-(comment defn update [s & ms]
-  (let [recipe (->> ms
-                    (mapcat identity)
-                    close-update-map)]
-    recipe))
-
 ;;
 ;; PRIVATE FUNCTIONS
 ;;
@@ -175,9 +150,27 @@
                   x))
               p))
 
-(comment deftype Scope [crumbs m]) ; XXX: remove?
+(def ^{:dynamic true :private true} *scope*)
 
-(comment def ^{:dynamic true :private true} *scope*) ; XXX: remove?
+(defn up* [x]
+  {:pre [(ce/varname x)]}
+  (->> (*scope* x)
+       meta
+       :top))
+
+(defn top* [x]
+  {:pre [(ce/varname x)]}
+  {:post [x]}
+  (->> (*scope* x)
+       meta
+       :top))
+
+(defmacro up
+  ([x] `(up* (ce/variable '~x)))
+  ([x n] '[:up-n-not-implemented]))
+
+(defmacro top [x]
+  `(top* (ce/variable '~x)))
 
 (defn- comprehend* [env f args]
   (let [marker? (= :mark (first args))
@@ -203,103 +196,15 @@
                        vec)
               (ce/match-with (.-!cache ~s-name)
                              [~@patterns]
-                             (.-hs ~s-name))
-              )
-            ; (pldb/with-db
-            ;   (.-idx ~s-name)
-            ;   (l/run* [breadcrumbs# ~@explicit-vars]
-            ;           (let [~ren-name (memoize #(cond (~explicit-vars %) %
-            ;                                           (and (coll? %)
-            ;                                                (-> % meta ::opaque not)) (l/lvar)
-            ;                                           :else (hash %)))
-            ;                 !crumbs# (atom {})
-            ;                 make-goal# (fn [f# & args#]
-            ;                              (let [args# (map #(if (l/lvar? %)
-            ;                                                  (or (.-oname %) [% (.-name %)])
-            ;                                                  %)
-            ;                                               args#)]
-            ;                                (swap! !crumbs# update-in [(last args#)] conj (butlast args#)))
-            ;                              (apply f# args#))]
-            ;             (fn [a#]
-            ;               (-> (partial #'describe nil ~ren-name make-goal#)
-            ;                   (mapcat [~@patterns])
-            ;                   ~@(if marker
-            ;                       [`(conj (l/conde ~@(for [pattern patterns]
-            ;                                            `[(marks-rel ~marker-name (~ren-name ~pattern))])))])
-            ;                   (concat [(l/== breadcrumbs# @!crumbs#)])
-            ;                   (as-> $# (reduce lp/bind a# $#)))))))
-            ; (map #(cons (first %)
-            ;             (map (.-m ~s-name) (rest %))))
-            ; trace
-            ; (~f (fn [~s-name [breadcrumbs# ~@explicit-vars]]
-            (~f (fn [~s-name ~(->> explicit-vars
-                                   (map (fn [x] [x (ce/variable x)]))
-                                   (into {}))]
-
-                  ; (binding [*scope* (Scope. breadcrumbs# (.-m ~s-name))]
-                  ;   ~expr)
-                  ~expr)
+                             (.-hs ~s-name)))
+            (~f (fn [~s-name constraints#]
+                  (let [~(->> explicit-vars
+                              (map (fn [x] [x (ce/variable x)]))
+                              (into {}))
+                        (ce/constraints-as-model constraints#)]
+                    (binding [*scope* constraints#]
+                      ~expr)))
                 ~s-name)))))
 ; ~(if marker? ; and [either using rcomprehend or using let syntax] ; TODO optimize further
 ;    `(mark ~s-name ~marker-name)
 ;    s-name))))))
-
-(comment defprotocol ^:private ICursor
-  (value-with-cursor [this])
-  (apply* [this f]))
-
-(comment defrecord Cursor [value crumb-id]
-  ICursor
-  (value-with-cursor [this]
-                     (with-meta value {::cursor this}))
-  (apply* [this f]
-          (->> this
-               f
-               distinct
-               (map value-with-cursor)
-               doall)))
-
-(comment defn- cursor [form]
-  `(let [v# ~form]
-     (or (-> v# meta ::cursor)
-         (Cursor. v# '~form))))
-
-(comment defn- up* [c]
-  (->> (.-crumb-id c)
-       ((.-crumbs *scope*))
-       (map first)
-       (map #(if-let [v ((.-m *scope*) (first %))]
-               (Cursor. v %)))))
-
-(comment defn- top* [x#]
-  (let [ys# (up* x#)
-        zs# (->> ys#
-                 (filter some?)
-                 (mapcat top*))]
-    (if (some nil? ys#)
-      (cons x# zs#)
-      zs#)))
-
-(comment defn- paths [c]
-  (->> (.-crumb-id c)
-       ((.-crumbs *scope*))
-       (mapcat (fn [[[h n :as hn] & args]]
-                 (if hn
-                   (let [v ((.-m *scope*) h)
-                         idx (if args
-                               (first args)
-                               v)]
-                     (->> (paths (Cursor. v hn))
-                          (map #(conj % idx))))
-                   [[(.-value c)]])))))
-
-(comment defn- close-update-map [m]
-  (->> m
-       (mapcat (fn [[k v :as kv]]
-                 (->> k
-                      butlast
-                      (iterate butlast)
-                      (take-while (comp pos? count))
-                      (map #(vector % ::traverse))
-                      (cons kv))))
-       (into {})))

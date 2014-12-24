@@ -12,9 +12,9 @@
 
 (assert-notice)
 
-;
-; CORE.CACHE BASED MEMOIZATION
-;
+;;
+;; CORE.CACHE BASED MEMOIZATION
+;;
 
 (defn memoized [!cache f & args]
   {:pre [(some? !cache)
@@ -33,9 +33,9 @@
                                 (cache/miss c k (delay (apply f args))))))
                      k))))
 
-;
-; FIXPOINTS
-;
+;;
+;; FIXPOINTS
+;;
 
 (defn fix [f] ; XXX moved
   #(let [v (f %)]
@@ -46,9 +46,9 @@
 (defmacro fixpoint [[name val] expr] ; XXX moved
   `((fix (fn [~name] ~expr)) ~val))
 
-;
-; OPERATIONS ON COLLECTIONS
-;
+;;
+;; OPERATIONS ON COLLECTIONS
+;;
 
 (defn as-set [coll]
   {:pre [(coll? coll)]

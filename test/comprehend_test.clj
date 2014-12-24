@@ -199,7 +199,7 @@
                              [2]
                              true)
                [true])))))
-  (testing "Forward comprehension"
+  (comment testing "Forward comprehension"
     (is (= (set (comprehend :mark :b
                             (-> (indexed-set [1 2] [2 3] [3 4] [5 6])
                                 (mark :b)
@@ -293,8 +293,8 @@
                          [[x]]
                          (.-value (cursor-macro (first (c/up x)))))
            (list [1]))))
-  (comment testing "up/top"
-    (is (= (c/comprehend (c/indexed-set [1 [2 [3]]])
+  (testing "up/top"
+    (comment is (= (c/comprehend (c/indexed-set [1 [2 [3]]])
                          [x [y [z]]]
                          (c/up z 2))
            (c/comprehend (c/indexed-set [1 [2 [3]]])
@@ -314,11 +314,13 @@
                          [x [y [z]]]
                          (c/up x))
            '(([1 [2 [3]]]))))
-    (is (= (c/comprehend (c/indexed-set [1] [[1]] [[[1]]])
+    (is (= (->> (c/comprehend (c/indexed-set [1] [[1]] [[[1]]])
                          [[x]]
                          [[[x]]]
                          (c/top x))
-           '(([[1]] [[[1]]]))))
+                (map set)
+                set)
+           #{#{[[1]] [[[1]]]}}))
     (is (= (set (c/comprehend (c/indexed-set #{:a 1} #{[:a] 2} #{[[:a]] 3}
                                              #{[[[[[:a]]]]] 4} #{[[[[[[:a]]]]]] 5}
                                              #{[[[[[[[[:a]]]]]]]] 6})
@@ -441,7 +443,7 @@
                   (is (= (c/up x 3)
                          (mapcat #(c/up %) (c/up x 2)))))
     (doall $)
-    (is (= (count $) 4)))
+    (is (= (count $) 4))())
   (comment is (= (-> (indexed-set 1)
                      (mark :a :b)
                      (conj 2)

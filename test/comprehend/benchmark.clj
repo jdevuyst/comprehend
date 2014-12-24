@@ -136,7 +136,7 @@
         (when-not (= s2 s3)
           (println "s2 - s3: " (set/difference s2 s3))
           (println "s3 - s2: " (set/difference s3 s2))))
-      (is (> (count @!v1) 0) "Try generating more edges"))))
+      (is (pos? (count @!v1)) "Try generating more edges"))))
 
 (deftest benchmark-test (run-benchmark 50))
 

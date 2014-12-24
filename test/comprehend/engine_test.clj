@@ -73,38 +73,38 @@
              :not-a-coll)))
 
     (testing "unify colls"
-      (is (= (set (unify #{x y :lit} #{1 2 3}))
+      (is (= (set (unify {} #{x y :lit} #{1 2 3}))
              #{[x #{1 2 3}]
                [y #{1 2 3}]
                [:lit #{1 2 3}]})))
 
     (testing "unify sequentials"
-      (is (= (set (unify [x y] [1 2]))
+      (is (= (set (unify {} [x y] [1 2]))
              #{[x #{1}]
                [y #{2}]}))
-      (is (= (set (unify [1 2] [1 2]))
+      (is (= (set (unify {} [1 2] [1 2]))
              #{[1 #{1}] [2 #{2}]}))
-      (is (= (set (unify [1 2] [2 1]))
+      (is (= (set (unify {} [1 2] [2 1]))
              #{[2 #{1}] [1 #{2}]})))
 
     (testing "unify maps"
-      (is (= (->> (unify {1 x 3 y} {1 2 3 4})
+      (is (= (->> (unify {} {1 x 3 y} {1 2 3 4})
                   (map (fn [[x dom]] [x (set dom)]))
                   set)
              #{[[1 x] #{[1 2] [3 4]}]
                [[3 y] #{[1 2] [3 4]}]})))
 
     (testing "mixed"
-      (is (= (-> (unify [x y] [2 1])
+      (is (= (-> (unify {} [x y] [2 1])
                  set
                  (conj [0 #{0}]))
-             (->> (unify {0 [[x y]]} {0 [[2 1]]})
+             (->> (unify {} {0 [[x y]]} {0 [[2 1]]})
                   (mapcat decompose-dom-terms)
                   set))))
 
     (testing "simplify-domains"
-      (is (= (->> (unify #{[:a x]} #{[:a 1] [:b 2] [:a 4]})
-                  (mapcat (partial simplify-domains !cache))
+      (is (= (->> (unify {} #{[:a x]} #{[:a 1] [:b 2] [:a 4]})
+                  (mapcat (partial simplify-domains !cache {}))
                   (map (fn [[x dom]] [x (set dom)])))
              [[[:a x] #{[:a 1] [:a 4]}]])))
 
@@ -120,7 +120,7 @@
     (testing "develop"
       (is (= (->> (list [[x {y [x z]}] #{[1 {2 [1 3] :a :b}]}]
                         [{100 y} #{{100 2}}])
-                  (develop1 !cache)
+                  (develop1 !cache) ; without substitution of known values in keys, this test would require quantification
                   (develop1 !cache)
                   (develop1 !cache)
                   constraints-as-mmap)
@@ -157,22 +157,28 @@
              [{x #{1} y #{2} z #{3}}])))
 
     (testing "find models"
-      (is (= (set (match-in !cache {x 2 y z} #{{1 2 3 4 5 6}}))
+      (is (= (->> (match-in !cache {x 2 y z} #{{1 2 3 4 5 6}})
+                  (map constraints-as-model)
+                  set)
              #{{x 1, y 3, z 4}
                {x 1, y 5, z 6}
                {x 1, y 1, z 2}}))
-      (is (= (set (match-with !cache
+      (is (= (->> (match-with !cache
                               [[x y] [y x]]
-                              #{[1 2] [2 1] [3 4] [4 5] [5 3] [6 6]}))
+                              #{[1 2] [2 1] [3 4] [4 5] [5 3] [6 6]})
+                  (map constraints-as-model)
+                  set)
              #{{x 1 y 2}
                {x 2 y 1}
                {x 6 y 6}}))
-      (is (= (set (match-with !cache
+      (is (= (->> (match-with !cache
                               [{x #{y} y #{z}}]
                               #{{1 #{2 4}
                                  2 #{5 6}
                                  3 #{7 8}
-                                 9 #{0}}}))
+                                 9 #{0}}})
+                  (map constraints-as-model)
+                  set)
              #{{x 1 y 2 z 5}
                {x 1 y 2 z 6}})))))
 
