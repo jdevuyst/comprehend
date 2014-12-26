@@ -3,8 +3,7 @@
             [comprehend.tools :as ct]
             [comprehend.engine :refer :all]
             [clojure.walk :as w]
-            [clojure.core.cache :as cache]
-            [clojure.tools.trace :refer [deftrace trace trace-ns]]))
+            [clojure.core.cache :as cache]))
 
 (def VarType comprehend.engine.Var)
 

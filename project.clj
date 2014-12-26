@@ -9,7 +9,7 @@
   :profiles {:dev {:global-vars {*assert* true}
                    :dependencies [[org.clojure/math.combinatorics "0.0.7"]
                                   [org.clojure/core.logic "0.8.8"]
-                                  [org.clojure/tools.trace "0.7.8"]]
+                                  [print-foo "1.0.1"]]
                    :injections [(require '[clojure.set :as set])
                                 (require '[clojure.walk :as w])
                                 (require '[comprehend.tools :as ct])
@@ -19,4 +19,4 @@
                                 (require '[comprehend.engine-test :as ce-test])
                                 (require '[comprehend-test :as c-test])
                                 (require '[comprehend.benchmark :as benchmark])
-                                (require '[clojure.tools.trace :refer [deftrace trace trace-ns]])]}})
+                                (require '[print.foo :refer [print-and-return print-defn print-cond print-if print-let print-> print->>]])]}})

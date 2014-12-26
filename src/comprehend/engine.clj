@@ -2,8 +2,7 @@
   (:require [comprehend.tools :as ct]
             [clojure.set :as set]
             [clojure.walk :as w]
-            [clojure.core.reducers :as r]
-            [clojure.tools.trace :refer [deftrace trace trace-ns]]))
+            [clojure.core.reducers :as r]))
 
 (ct/assert-notice)
 

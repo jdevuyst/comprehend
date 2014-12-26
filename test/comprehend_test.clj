@@ -3,8 +3,7 @@
             [comprehend :refer :all]
             [comprehend :as c]
             [comprehend.tools :as ctools]
-            [clojure.walk :as w]
-            [clojure.tools.trace :refer [deftrace trace trace-ns]]))
+            [clojure.walk :as w]))
 
 (defmacro cursor-macro [form]
   (#'c/cursor form))

@@ -1,7 +1,6 @@
 (ns comprehend.tools-test
   (:require [clojure.test :refer :all]
-            [comprehend.tools :as ct]
-            [clojure.tools.trace :refer [deftrace trace trace-ns]]))
+            [comprehend.tools :as ct]))
 
 (def VarType comprehend.engine.Var)
 

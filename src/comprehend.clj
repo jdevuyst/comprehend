@@ -2,8 +2,7 @@
   (:require [clojure.walk :as w]
             [comprehend.engine :as ce]
             [comprehend.tools :as ct]
-            [clojure.core.cache :as cache]
-            [clojure.tools.trace :refer [deftrace trace trace-ns]]))
+            [clojure.core.cache :as cache]))
 
 (ct/assert-notice)
 
