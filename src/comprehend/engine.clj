@@ -290,7 +290,7 @@
        (r/filter not-empty)
        (r/map constraints-as-mmap)
 
-       (r/fold 1000000
+       (r/fold 1
                (fn
                  ([] #{})
                  ([x y] (set/union x y)))
