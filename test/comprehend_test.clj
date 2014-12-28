@@ -198,7 +198,7 @@
                              [2]
                              true)
                [true])))))
-  (comment testing "Forward comprehension"
+  (testing "Forward comprehension"
     (is (= (set (comprehend :mark :b
                             (-> (indexed-set [1 2] [2 3] [3 4] [5 6])
                                 (mark :b)
@@ -269,37 +269,21 @@
                          [:test]
                          true)
              [true]))))
-  (comment testing "Metadata"
+  (testing "Metadata"
     (let [m {:a :b :c :d}
           s (with-meta (indexed-set 1 2) m)]
       (is (= (meta s) m))
       (is (= m (meta (conj s (gensym)))))
       (is (= m (meta (disj s (first s)))))
       (is (= m (meta (mark s :a :b :c))))))
-  (comment testing "Cursors"
-    (is (= (c/comprehend (c/indexed-set [[1]])
-                         [[x]]
-                         (.-value (cursor-macro x)))
-           (list 1)))
-    (is (= (c/comprehend (c/indexed-set [[1]])
-                         [[x]]
-                         (.-value (cursor-macro (first (c/up x)))))
-           (c/comprehend (c/indexed-set [[1]])
-                         [[x]]
-                         (.-value (first (#'c/up* (cursor-macro x)))))
-           '([1])))
-    (is (= (c/comprehend (c/indexed-set [[1]])
-                         [[x]]
-                         (.-value (cursor-macro (first (c/up x)))))
-           (list [1]))))
   (testing "up/top"
     (comment is (= (c/comprehend (c/indexed-set [1 [2 [3]]])
-                         [x [y [z]]]
-                         (c/up z 2))
-           (c/comprehend (c/indexed-set [1 [2 [3]]])
-                         [x [y [z]]]
-                         (-> z c/up first c/up))
-           '(([2 [3]]))))
+                                 [x [y [z]]]
+                                 (c/up z 2))
+                   (c/comprehend (c/indexed-set [1 [2 [3]]])
+                                 [x [y [z]]]
+                                 (-> z c/up first c/up))
+                   '(([2 [3]]))))
     (is (= (c/comprehend (c/indexed-set [1 [2 [3]]])
                          [x [y [z]]]
                          (c/top z))
@@ -314,9 +298,9 @@
                          (c/up x))
            '(([1 [2 [3]]]))))
     (is (= (->> (c/comprehend (c/indexed-set [1] [[1]] [[[1]]])
-                         [[x]]
-                         [[[x]]]
-                         (c/top x))
+                              [[x]]
+                              [[[x]]]
+                              (c/top x))
                 (map set)
                 set)
            #{#{[[1]] [[[1]]]}}))
@@ -427,15 +411,15 @@
                        s)
          (list (c/indexed-set [1] [2])
                (c/indexed-set [1] [2]))))
-  (comment is (= (set (c/comprehend (c/indexed-set {:a 1} {:b 1} {:a 2 :b 2})
-                                    {:a x}
-                                    (c/up x)))
-                 '#{({:a 1}) ({:b 2, :a 2})}))
-  (comment is (= (c/comprehend (c/indexed-set #{:a 1} #{[:a] 2} #{[[:a]] 3})
-                               #{[x]}
-                               #{[[x]]}
-                               (set (c/top x)))
-                 '(#{#{2 [:a]} #{3 [[:a]]}})))
+  (is (= (set (c/comprehend (c/indexed-set {:a 1} {:b 1} {:a 2 :b 2})
+                            {:a x}
+                            (c/up x)))
+         '#{({:a 1}) ({:b 2, :a 2})}))
+  (is (= (c/comprehend (c/indexed-set #{:a 1} #{[:a] 2} #{[[:a]] 3})
+                       #{[x]}
+                       #{[[x]]}
+                       (set (c/top x)))
+         '(#{#{2 [:a]} #{3 [[:a]]}})))
   (comment as-> (c/indexed-set '[#{[([1])]}] '[#{[([2])]}] '[#{[([3])]}] '[#{[([4])]}]) $
     (c/comprehend $
                   [#{[[[x]]]}]
@@ -443,48 +427,48 @@
                          (mapcat #(c/up %) (c/up x 2)))))
     (doall $)
     (is (= (count $) 4))())
-  (comment is (= (-> (indexed-set 1)
-                     (mark :a :b)
-                     (conj 2)
-                     (mark :a)
-                     (conj 3)
-                     (as-> s (comprehend :mark :a s x x))
-                     set)
-                 #{3}))
-  (comment is (= (-> (indexed-set 1)
-                     (mark :a :b)
-                     (conj 2)
-                     (mark :a)
-                     (conj 3)
-                     (as-> s (comprehend :mark :b s x x))
-                     set)
-                 #{2 3}))
-  (comment is (= (c/comprehend :mark "marker"
-                               (-> (c/indexed-set [1 2] [2 3])
-                                   (mark "marker")
-                                   (conj [3 4]))
-                               [a b]
-                               [b c]
-                               [a b c])
-                 '([2 3 4])))
-  (comment let [s (-> (c/indexed-set 1)
-                      (mark :a)
-                      (conj 2))]
+  (is (= (-> (indexed-set 1)
+             (mark :a :b)
+             (conj 2)
+             (mark :a)
+             (conj 3)
+             (as-> s (comprehend :mark :a s x x))
+             set)
+         #{3}))
+  (is (= (-> (indexed-set 1)
+             (mark :a :b)
+             (conj 2)
+             (mark :a)
+             (conj 3)
+             (as-> s (comprehend :mark :b s x x))
+             set)
+         #{2 3}))
+  (is (= (c/comprehend :mark "marker"
+                       (-> (c/indexed-set [1 2] [2 3])
+                           (mark "marker")
+                           (conj [3 4]))
+                       [a b]
+                       [b c]
+                       [a b c])
+         '([2 3 4])))
+  (let [s (-> (c/indexed-set 1)
+              (mark :a)
+              (conj 2))]
     (is (= (set (c/comprehend :mark :a
                               [s' s]
                               x
                               s'))
            #{(mark s :a)})))
-  (comment is (= (c/comprehend :mark :a
-                               [s (-> (c/indexed-set 1)
-                                      (mark :a)
-                                      (conj 2))]
-                               x
-                               {x (c/comprehend :mark :a
-                                                (conj s 3)
-                                                y
-                                                y)})
-                 [{2 [3]}]))
+  (is (= (c/comprehend :mark :a
+                       [s (-> (c/indexed-set 1)
+                              (mark :a)
+                              (conj 2))]
+                       x
+                       {x (c/comprehend :mark :a
+                                        (conj s 3)
+                                        y
+                                        y)})
+         [{2 [3]}]))
   (is (= (set (comprehend (indexed-set 1 2 3 4)
                           x
                           (if (even? x)
@@ -510,17 +494,17 @@
          '(1)))
   (is (= (c/indexed-set [1])
          (c/indexed-set [1])))
-  (comment is (not= (c/indexed-set 1)
-                    (mark (c/indexed-set 1) :a)))
+  (is (not= (c/indexed-set 1)
+            (mark (c/indexed-set 1) :a)))
   (comment is (not= (c/indexed-set [1])
                     (c/indexed-set ^::c/opaque [1])))
-  (comment is (= (-> (indexed-set 1)
-                     (conj 2)
-                     (mark :a))
-                 (-> (indexed-set 1)
-                     (mark :a)
-                     (conj 2)
-                     (mark :a))))
+  (is (= (-> (indexed-set 1)
+             (conj 2)
+             (mark :a))
+         (-> (indexed-set 1)
+             (mark :a)
+             (conj 2)
+             (mark :a))))
   (is (not= (c/indexed-set 1) #{1}))
   (is (= (set (c/rcomprehend [s (c/indexed-set [1 2] [2 3] [3 4])]
                              [a b]

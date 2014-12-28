@@ -48,6 +48,7 @@
 ; XXX currently not fully extensional:
 ; (generalize #{a b}) = (generalize #{c d})
 ; iff (compare (hash a) (hash b)) = (compare (hash c) (hash d))
+; (de Bruijn indices do not appear to help with this)
 (defn generalize [x*]
   (let [!consts (atom {})
         !vars (atom {})
