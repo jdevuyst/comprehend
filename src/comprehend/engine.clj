@@ -2,7 +2,8 @@
   (:require [comprehend.tools :as ct]
             [clojure.set :as set]
             [clojure.walk :as w]
-            [clojure.core.reducers :as r]))
+            [clojure.core.reducers :as r]
+            [print.foo :refer [print-and-return print-defn print-cond print-if print-let print-> print->>]]))
 
 (ct/assert-notice)
 
@@ -62,7 +63,10 @@
                               (grounded? %) (f !consts %)
                               :else %)
                        x*)
-     :const-map (set/map-invert @!consts)}))
+     :const-map (->> @!consts
+                     (r/map (fn [[k v]] [v #{k}]))
+                     (r/reduce conj! (transient {}))
+                     persistent!)}))
 
 ;
 ; CONSTRAINT STRUCTURES
@@ -151,6 +155,17 @@
         (coll? x) :set-like
         :else :not-a-coll))
 
+(defn upmd [old-meta new-parent]
+  {:pre [(or (nil? old-meta) (map? old-meta))
+         (coll? new-parent)
+         (not= clojure.lang.MapEntry (type new-parent))]
+   :post [(map? %)
+          (-> % :top coll?)
+          (-> % :up coll?)]}
+  (let [new-parent (with-meta new-parent old-meta)]
+    {:top (or (:top old-meta) [new-parent])
+     :up [new-parent]}))
+
 (defn unify [md x* x]
   {:pre [(grounded? x)]
    :post [(constraint-coll? %)]}
@@ -162,19 +177,18 @@
           [falsum]
 
           (= :set-like t)
-          (map (fn [el*] [el* (with-meta x md)])
+          (map (fn [el*] [el* (with-meta x (upmd md x))])
                x*)
 
           (= :map t)
-          (map (fn [kv] [kv (with-meta (seq x) md)])
+          (map (fn [kv] [kv (with-meta (seq x) (upmd md x))])
                x*)
 
-          :else
+          :else ; list-like
           (mapcat unify
-                  (map (fn [y]
-                         {:top (-> md :top (or [y]))
-                          :up [y]})
-                       x)
+                  (repeat (if (= (type x) clojure.lang.MapEntry)
+                            (upmd md (vec x))
+                            (upmd md x)))
                   x*
                   x))))
 
@@ -187,8 +201,7 @@
    :post [(constraint-coll? %)]}
   (if (and (= 1 (count dom))
            (not (varname x*)))
-    (unify {:top (-> dom meta :top (or [(first dom)]))
-            :up [(first dom)]}
+    (unify (meta dom)
            x*
            (first dom))
     [constraint]))
@@ -212,7 +225,7 @@
    :post [(constraint-coll? %)]}
   (let [{:keys [query const-map]} (generalize (ct/subst known-values x*))]
     (assert query)
-    (assert (map? const-map))
+    (assert (model? const-map))
     (if (and (-> query varname not)
              (-> const-map count pos?)
              (not= x* (-> dom meta ::simplified)))
@@ -223,7 +236,10 @@
                               dom
                               (keys const-map)) $
                  ($ const-map)
-                 (r/map #(ct/subst % query) $)
+                 (r/mapcat #(->> %
+                                 vals
+                                 (mapcat (comp :top meta)))
+                           $)
                  (r/reduce conj! (transient #{}) $)
                  (persistent! $)
                  (with-meta $ (assoc (meta dom) ::simplified x*)))]]
@@ -320,7 +336,5 @@
   (match-with !cache [x*] dom))
 
 (defn indexed-match-in [!cache x* dom ks]
-  ; (println (str :X (hash [!cache dom]) \: (hash [x* ks])))
-  (as-> (match-in !cache x* dom) $
-        (map constraints-as-model $)
-        (set/index $ ks)))
+  (set/index (match-in !cache x* (with-meta dom nil))
+             ks))
