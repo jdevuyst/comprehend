@@ -3,7 +3,10 @@
             [comprehend.tools :as ct]
             [comprehend.engine :refer :all]
             [clojure.walk :as w]
-            [clojure.core.cache :as cache]))
+            [clojure.core.cache :as cache]
+            [clojure.core.reducers :as r]))
+
+
 
 (def VarType comprehend.engine.Var)
 
@@ -122,8 +125,8 @@
                   (develop1 !cache) ; without substitution of known values in keys, this test would require quantification
                   (develop1 !cache)
                   (develop1 !cache)
-                  constraints-as-mmap)
-             {y #{2}, x #{1}, z #{3}}))
+                  model-as-subst-map)
+             {y 2, x 1, z 3}))
       (is (->> (list [[x {y [x z]}] #{[1 {2 [1 3] :a :b}]}]
                      [{100 y} #{{100 2}}]
                      [{3 x} #{{3 4}}])
@@ -152,12 +155,12 @@
                         [{100 y} #{{100 2}}])
                   list
                   (develop-all !cache)
-                  (map constraints-as-mmap))
-             [{x #{1} y #{2} z #{3}}])))
+                  (map model-as-subst-map))
+             [{x 1 y 2 z 3}])))
 
     (testing "find models"
       (is (= (->> (match-in !cache {x 2 y z} #{{1 2 3 4 5 6}})
-                  (map constraints-as-model)
+                  (map model-as-subst-map)
                   set)
              #{{x 1, y 3, z 4}
                {x 1, y 5, z 6}
@@ -165,7 +168,7 @@
       (is (= (->> (match-with !cache
                               [[x y] [y x]]
                               #{[1 2] [2 1] [3 4] [4 5] [5 3] [6 6]})
-                  (map constraints-as-model)
+                  (map model-as-subst-map)
                   set)
              #{{x 1 y 2}
                {x 2 y 1}
@@ -176,7 +179,7 @@
                                  2 #{5 6}
                                  3 #{7 8}
                                  9 #{0}}})
-                  (map constraints-as-model)
+                  (map model-as-subst-map)
                   set)
              #{{x 1 y 2 z 5}
                {x 1 y 2 z 6}})))))

@@ -18,7 +18,7 @@
   (conjd-root-el [_ v])
   (disjd-root-el [_ v]))
 
-(extend-type clojure.core.cache.SoftCache
+(extend-type clojure.core.cache.SoftCache ; work in progress
   CacheProtocolExtension
   (conjd-root-el [c v] c)
   (disjd-root-el [c v] c))
@@ -200,7 +200,7 @@
                   (let [~(->> explicit-vars
                               (map (fn [x] [x (ce/variable x)]))
                               (into {}))
-                        (ce/constraints-as-model constraints#)]
+                        (ce/model-as-subst-map constraints#)]
                     (binding [*scope* constraints#]
                       ~expr)))
                 ~s-name)))))

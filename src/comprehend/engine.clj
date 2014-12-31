@@ -2,14 +2,12 @@
   (:require [comprehend.tools :as ct]
             [clojure.set :as set]
             [clojure.walk :as w]
-            [clojure.core.reducers :as r]
-            [print.foo :refer [print-and-return print-defn print-cond print-if print-let print-> print->>]]))
+            [clojure.core.reducers :as r]))
 
 (ct/assert-notice)
 
 ;;
 ;; FIRST CLASS LOGICAL TERMS
-;;
 
 (defprotocol ILogicalTerm
   (varname [_]))
@@ -65,8 +63,7 @@
                        x*)
      :const-map (->> @!consts
                      (r/map (fn [[k v]] [v #{k}]))
-                     (r/reduce conj! (transient {}))
-                     persistent!)}))
+                     (into {}))}))
 
 ;
 ; CONSTRAINT STRUCTURES
@@ -83,6 +80,11 @@
 
 (defn constraint-map? [x]
   (and (map? x) (constraint-coll? x)))
+
+(defn model? [x]
+  (and (constraint-map? x)
+       (every? varname (keys x))
+       (every? (partial = 1) (map count (vals x)))))
 
 (defn merge-doms [coll1 coll2]
   {:pre [(or (nil? coll1) (coll? coll1))
@@ -113,30 +115,10 @@
                  (transient {}))
        persistent!))
 
-;;
-;; MODELS
-;;
-
-(defn model? [x]
-  (and (map? x)
-       (->> x keys (every? varname))))
-
-(defn constraints-as-model [constraints]
-  {:pre [(constraint-coll? constraints)
-         (->> constraints
-              (map first)
-              (every? varname))
-         (->> constraints
-              (map second)
-              (map count)
-              (every? (partial = 1)))
-         (->> constraints
-              (map first)
-              frequencies
-              vals
-              (every? (partial = 1)))]
-   :post [(model? %)]}
-  (->> constraints
+(defn model-as-subst-map [model]
+  {:pre [(model? model)]
+   :post [(map? %)]}
+  (->> model
        (r/reduce (fn f
                    ([m [k v]] (f m k v))
                    ([m k v] (assoc! m k (first v))))
@@ -155,7 +137,7 @@
         (coll? x) :set-like
         :else :not-a-coll))
 
-(defn upmd [old-meta new-parent]
+(defn- upmd [old-meta new-parent]
   {:pre [(or (nil? old-meta) (map? old-meta))
          (coll? new-parent)
          (not= clojure.lang.MapEntry (type new-parent))]
@@ -236,12 +218,10 @@
                               dom
                               (keys const-map)) $
                  ($ const-map)
-                 (r/mapcat #(->> %
-                                 vals
-                                 (mapcat (comp :top meta)))
+                 (r/mapcat #(r/mapcat (comp :top meta)
+                                      (vals %))
                            $)
-                 (r/reduce conj! (transient #{}) $)
-                 (persistent! $)
+                 (into #{} $)
                  (with-meta $ (assoc (meta dom) ::simplified x*)))]]
       [constraint])))
 
@@ -250,8 +230,7 @@
        (filter (fn [[k v]] (varname k)))
        (filter (fn [[k v]] (= 1 (count v))))
        (r/map (fn [[k v]] [k (first v)]))
-       (r/reduce conj! (transient {}))
-       persistent!))
+       (into {})))
 
 (defn develop1 [!cache constraints]
   {:pre [(constraint-coll? constraints)]
@@ -298,8 +277,7 @@
           (every? (partial constraint-map?) %)]}
   (->> metaverse
 
-       (r/reduce conj! (transient []))
-       persistent!
+       (into [])
 
        (r/map (partial develop !cache))
        (r/mapcat quantify1)
