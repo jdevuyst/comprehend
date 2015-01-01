@@ -8,6 +8,7 @@
 
 ;;
 ;; FIRST CLASS LOGICAL TERMS
+;;
 
 (defprotocol ILogicalTerm
   (varname [_]))
@@ -65,9 +66,9 @@
                      (r/map (fn [[k v]] [v #{k}]))
                      (into {}))}))
 
-;
-; CONSTRAINT STRUCTURES
-;
+;;
+;; CONSTRAINT STRUCTURES
+;;
 
 (defn constraint-pair? [x]
   (and (vector? x)
@@ -85,16 +86,6 @@
   (and (constraint-map? x)
        (every? varname (keys x))
        (every? (partial = 1) (map count (vals x)))))
-
-(defn merge-doms [coll1 coll2]
-  {:pre [(or (nil? coll1) (coll? coll1))
-         (or (nil? coll2) (coll? coll2))]
-   :post [(coll? %)]}
-  (with-meta (ct/partial-intersection coll1 coll2)
-             {:top (set/union (-> coll1 meta :top)
-                              (-> coll2 meta :top))
-              :up (set/union (-> coll1 meta :up)
-                             (-> coll2 meta :up))}))
 
 (defn constraints-as-mmap [constraints]
   {:pre [(r/reduce (fn f
@@ -125,17 +116,19 @@
                  (transient {}))
        persistent!))
 
+(defn merge-doms [coll1 coll2]
+  {:pre [(or (nil? coll1) (coll? coll1))
+         (or (nil? coll2) (coll? coll2))]
+   :post [(coll? %)]}
+  (with-meta (ct/partial-intersection coll1 coll2)
+             {:top (set/union (-> coll1 meta :top)
+                              (-> coll2 meta :top))
+              :up (set/union (-> coll1 meta :up)
+                             (-> coll2 meta :up))}))
+
 ;;
 ;; (PARTIAL) UNIFICATION WITH STRUCTURES
 ;;
-
-(def ^:private falsum [(variable :falsum) #{}])
-
-(defn unification-type [x]
-  (cond (map? x) :map
-        (sequential? x) [:list-like (count x)]
-        (coll? x) :set-like
-        :else :not-a-coll))
 
 (defn- upmd [old-meta new-parent]
   {:pre [(or (nil? old-meta) (map? old-meta))
@@ -147,6 +140,14 @@
   (let [new-parent (with-meta new-parent old-meta)]
     {:top (or (:top old-meta) [new-parent])
      :up [new-parent]}))
+
+(defn unification-type [x]
+  (cond (map? x) :map
+        (sequential? x) [:list-like (count x)]
+        (coll? x) :set-like
+        :else :not-a-coll))
+
+(def ^:private falsum [(variable :falsum) #{}])
 
 (defn unify [md x* x]
   {:pre [(grounded? x)]
