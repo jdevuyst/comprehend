@@ -352,10 +352,10 @@
                        s)
          (list (c/indexed-set [1] [2])
                (c/indexed-set [1] [2]))))
-  (is (= (c/comprehend (c/indexed-set #{1})
-              #{x}
+  (is (= (c/comprehend (c/indexed-set [1 2 3])
+              [x y 3]
               (c/up x))
-         '((#{1}))))
+         '(([1 2 3]))))
   (is (= (set (c/comprehend (c/indexed-set {:a 1} {:b 1} {:a 2 :b 2})
                             {:a x}
                             (c/up x)))

@@ -88,10 +88,10 @@ When a complex pattern matches a nested structure, it can sometimes be useful to
 Use `c/up` or `c/top` within a result expression to obtain the collections that were matched as containing the variable `x`.
 
 ```clojure
-(c/comprehend (c/indexed-set #{1})
-              #{x}
+(c/comprehend (c/indexed-set [1 2 3])
+              [x y 3]
               (c/up x))
-;=> ((#{1}))
+;=> (([1 2 3]))
 ```
 
 When `c/up` is applied to a variable that matches a map key or value, it returns the matching key-value pairs:
