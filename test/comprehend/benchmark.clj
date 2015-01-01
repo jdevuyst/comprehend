@@ -24,7 +24,8 @@
 ; In old PLDB-based implementation (1) was faster than (3) and (4) for N > 50.
 ;
 ; SEE ALSO
-; http://jdevuyst.blogspot.com/2014/05/comprehend-clojure-pattern-matching.html
+; - http://jdevuyst.blogspot.com/2015/01/comprehend-new-engine.html
+; - http://jdevuyst.blogspot.com/2014/05/comprehend-clojure-pattern-matching.html
 ;
 ; TO DO
 ; - Add a hand-optimized approach

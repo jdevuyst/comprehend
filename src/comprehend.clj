@@ -7,8 +7,8 @@
 (ct/assert-notice)
 
 (declare indexed-set indexed-set?
-         unbound-symbols describe annotate-ungrounded-terms
-         comprehend* cursor up* top* close-update-map)
+         unbound-symbols
+         comprehend* up* top*)
 
 ;;
 ;; PUBLIC API
@@ -18,13 +18,12 @@
   (conjd-root-el [_ v])
   (disjd-root-el [_ v]))
 
-(extend-type clojure.core.cache.BasicCache
-  CacheProtocolExtension
+; XXX the following defaults may be reconsidered at some point
+(extend-protocol CacheProtocolExtension
+  clojure.core.cache.BasicCache
   (conjd-root-el [c v] c)
-  (disjd-root-el [c v] c))
-
-(extend-type clojure.core.cache.SoftCache ; XXX work in progress
-  CacheProtocolExtension
+  (disjd-root-el [c v] c)
+  clojure.core.cache.SoftCache
   (conjd-root-el [c v] c)
   (disjd-root-el [c v] c))
 
@@ -127,6 +126,13 @@
                      (map (juxt keyword symbol))
                      (into {}))))
 
+(defmacro top [x]
+  `(-> '~x ce/variable top* distinct))
+
+(defmacro up
+  ([x] `(up ~x 1))
+  ([x n] `(-> '~x ce/variable (up* ~n) distinct)))
+
 ;;
 ;; PRIVATE FUNCTIONS
 ;;
@@ -152,13 +158,6 @@
 
 (def ^{:dynamic true :private true} *scope*)
 
-(defn up* [x n]
-  {:pre [(ce/varname x)]}
-  (-> (*scope* x)
-      meta
-      :up
-      (nth (dec n) nil)))
-
 (defn top* [x]
   {:pre [(ce/varname x)]
    :post [(coll? %)]}
@@ -166,12 +165,12 @@
       meta
       :top))
 
-(defmacro up
-  ([x] `(up ~x 1))
-  ([x n] `(-> '~x ce/variable (up* ~n) distinct)))
-
-(defmacro top [x]
-  `(-> '~x ce/variable top* distinct))
+(defn up* [x n]
+  {:pre [(ce/varname x)]}
+  (-> (*scope* x)
+      meta
+      :up
+      (nth (dec n) nil)))
 
 (defn- comprehend* [env f args]
   (let [marker? (= :mark (first args))
@@ -206,8 +205,8 @@
                               (map (fn [x] [x (ce/variable x)]))
                               (into {}))
                         (ce/model-as-subst-map constraints#)]
-                    (binding [*scope* constraints#]
+                    (binding [*scope* constraints#] ; XXX add nested scoping
                       ~expr)))
-                ~(if marker? ; XXX ...and using rcomprehend or (explicit) s-name
+                ~(if marker? ; XXX ...and using rcomprehend or let-syntax
                    `(mark ~s-name ~marker-name)
                    s-name))))))

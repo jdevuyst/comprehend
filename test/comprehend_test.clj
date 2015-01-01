@@ -6,9 +6,6 @@
             [clojure.walk :as w]
             [print.foo :refer [print-and-return print-defn print-cond print-if print-let print-> print->>]]))
 
-(defmacro cursor-macro [form]
-  (#'c/cursor form))
-
 (defmacro invariance-test [varname expr]
   `(is (= ~@(map (fn [X]
                    `(let [~varname ~X]

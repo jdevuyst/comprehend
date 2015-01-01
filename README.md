@@ -234,7 +234,7 @@ Building on the above features, `comprehend.mutable` comes with a [flat file dat
 (def db (cm/stored-indexed-set "example.edn"))
 ```
 
-Whenever `conj!` or `disj!` is used on `db`, the new contents are written to the same file. Note that markers and other metadata are not currently serialized to disk.
+Whenever `cm/conj` or `cm/disj` is used on `db`, the new contents are written to the same file. Note that markers and other metadata are not currently serialized to disk.
 
 ## Replaceable caches
 
@@ -245,6 +245,8 @@ By default, indexed sets use a soft cache. This means that the responsibility of
 ```
 
 Here, `s` can either be an indexed or a regular set; `cache` is expected to be an object that implements both `clojure.core.cache/CacheProtocol` from [`core.cache`](https://github.com/clojure/core.cache) and `c/CacheProtocolExtension`.
+
+Notice that the purpose of `c/CacheProtocolExtension` is to allow for caching mechanisms that evict intermediate results (only) when they become invalid. Such a cache is currently not included out of the box, however.
 
 ## Other features
 
@@ -285,7 +287,7 @@ Sets are considered equivalent by `=` if and only if they are indexed and marked
 (assert (not= (c/indexed-set 1) #{1}))
 ```
 
-Finally, the package `comprehend.tools` contains several functions that might come in handy when using Comprehend. For example, it contains a function `comprehend.tools/fix` and a macro `comprehend.tools/fixpoint` for computing fixed points. These are useful for closing indexed sets under a rewriting operation. The following example computes the transitive closure of an indexed set:
+Finally, the package `comprehend.tools` contains several functions that may come in handy when using Comprehend. For example, it contains a macro for computing fixed points. This is useful for closing indexed sets under a rewriting operation. The following example computes the transitive closure of an indexed set:
 
 ```clojure
 (require '[comprehend.tools :as ct])
@@ -301,6 +303,8 @@ Finally, the package `comprehend.tools` contains several functions that might co
 Similarly, `(ct/fix f)` returns a function that iteratively applies `f` to its arguments until a fixed point is found, which it then returns.
 
 ## Further information
+
+For more information see [this blog post](http://jdevuyst.blogspot.com/2015/01/comprehend-new-engine.html).
 
 More examples:
 
