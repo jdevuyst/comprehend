@@ -18,7 +18,7 @@
 ;
 ; RESULTS
 ; Comprehend was found to be always faster than (3).
-; Comprehend was found to be faster than (4) for N > 25.
+; Comprehend was found to be faster than (4) for N > 17 on a dual core laptop.
 ; (3) was found to be faster than (4) for N > 35.
 ;
 ; In old PLDB-based implementation (1) was faster than (3) and (4) for N > 50.
@@ -143,7 +143,7 @@
           (println "s3 - s2: " (set/difference s3 s2))))
       (is (pos? (count @!v1)) "Try generating more edges"))))
 
-(deftest benchmark-test (run-benchmark 50))
+(deftest benchmark-test (run-benchmark 20))
 
 (let [this-ns-name (ns-name *ns*)]
   (defn reload []
