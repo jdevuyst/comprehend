@@ -290,6 +290,16 @@ Finally, the package `comprehend.tools` contains several functions that might co
 
 Similarly, `(ct/fix f)` returns a function that iteratively applies `f` to its arguments until a fixed point is found, which it then returns.
 
+## Replaceable caches
+
+By default, indexed sets use a soft cache. This means that the responsibility of disposing of indexes is delegated to the garbage collector. Use `c/index` to swap in a custom cache:
+
+```clojure
+(c/index s cache)
+```
+
+Here, `s` can either be an indexed or a regular set; `cache` is expected to be an object that implements both `clojure.core.cache/CacheProtocol` from [`core.cache`](https://github.com/clojure/core.cache) and `c/CacheProtocolExtension`.
+
 ## Further information
 
 More examples:

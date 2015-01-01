@@ -66,15 +66,6 @@
 (defn indexed-set? [x]
   (= Set (type x)))
 
-(defn index
-  ([hs] (index hs (cache/soft-cache-factory {})))
-  ([hs cache]
-   {:pre [(set? hs)]
-    :post [(indexed-set? %)]}
-   (if (indexed-set? hs)
-     hs
-     (Set. hs (atom cache) {}))))
-
 (defn unindex [s]
   {:pre [(set? s)]
    :post [(set? %)
@@ -82,6 +73,13 @@
   (if (indexed-set? s)
     (.-hs s)
     s))
+
+(defn index
+  ([hs] (index hs (cache/soft-cache-factory {})))
+  ([hs cache]
+   {:pre [(set? hs)]
+    :post [(indexed-set? %)]}
+   (Set. (unindex hs) (atom cache) {})))
 
 (defn indexed-set
   ([] (index #{}))
