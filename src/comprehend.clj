@@ -18,7 +18,7 @@
   (conjd-root-el [_ v])
   (disjd-root-el [_ v]))
 
-(extend-type clojure.core.cache.SoftCache ; work in progress
+(extend-type clojure.core.cache.SoftCache ; XXX work in progress
   CacheProtocolExtension
   (conjd-root-el [c v] c)
   (disjd-root-el [c v] c))
@@ -53,8 +53,6 @@
   (get [this o] (.get hs o))
   clojure.lang.IFn
   (invoke [this o] (.invoke hs o))
-  ; clojure.lang.ILookup
-  ; (valAt [this k] (.get hs k))
   clojure.lang.IObj
   (withMeta [this m] (Set. (.withMeta hs m)
                            !cache
@@ -68,14 +66,14 @@
 (defn indexed-set? [x]
   (= Set (type x)))
 
-(defn index ; XXX new
+(defn index
   ([hs] (index hs (cache/soft-cache-factory {})))
   ([hs cache]
    {:pre [(set? hs)]
     :post [(indexed-set? %)]}
    (Set. hs (atom cache) {})))
 
-(defn unindex [s] ; XXX new
+(defn unindex [s]
   {:pre [(indexed-set? s)]
    :post [(set? s)]}
   (.-hs s))
@@ -85,6 +83,7 @@
   ([& xs] (index (set xs))))
 
 (defn mark [s & markers]
+  {:pre [(indexed-set? s)]}
   (Set. (.-hs s)
         (.-!cache s)
         (reduce #(assoc %1 %2 #{})
@@ -92,11 +91,13 @@
                 markers)))
 
 (defn unmark [s & markers]
+  {:pre [(indexed-set? s)]}
   (Set. (.-hs s)
         (.-!cache s)
         (reduce dissoc (.-markers s) markers)))
 
 (defn additions [s marker]
+  {:pre [(indexed-set? s)]}
   (get (.-markers s) marker #{}))
 
 (defmacro comprehend [& args]
@@ -147,7 +148,7 @@
   {:pre [(ce/varname x)]}
   (->> (*scope* x)
        meta
-       :top))
+       :up))
 
 (defn top* [x]
   {:pre [(ce/varname x)]}
@@ -158,7 +159,7 @@
 
 (defmacro up
   ([x] `(up* (ce/variable '~x)))
-  ([x n] '[:up-n-not-implemented]))
+  ([x n] `(meta (up* (ce/variable '~x)))))
 
 (defmacro top [x]
   `(top* (ce/variable '~x)))
@@ -175,9 +176,8 @@
         rdecl (rest rdecl)
         patterns (butlast rdecl)
         expr (last rdecl)
-        explicit-vars (->> patterns (unbound-symbols env) set)
-        marker-name (gensym "marker__")
-        ren-name (gensym "ren__")]
+        explicit-vars (set (unbound-symbols env patterns))
+        marker-name (gensym "marker__")]
     `(let [~s-name ~s
            ~marker-name ~marker]
        (->> (let ~(->> explicit-vars
@@ -199,6 +199,6 @@
                         (ce/model-as-subst-map constraints#)]
                     (binding [*scope* constraints#]
                       ~expr)))
-                ~(if marker? ; and [either using rcomprehend or using let syntax] ; TODO optimize further
+                ~(if marker? ; XXX ...and using rcomprehend or (explicit) s-name
                    `(mark ~s-name ~marker-name)
                    s-name))))))

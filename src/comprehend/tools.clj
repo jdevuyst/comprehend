@@ -37,13 +37,13 @@
 ;; FIXPOINTS
 ;;
 
-(defn fix [f] ; XXX moved
+(defn fix [f]
   #(let [v (f %)]
      (if (= % v)
        v
        (recur v))))
 
-(defmacro fixpoint [[name val] expr] ; XXX moved
+(defmacro fixpoint [[name val] expr]
   `((fix (fn [~name] ~expr)) ~val))
 
 ;;

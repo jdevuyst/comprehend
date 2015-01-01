@@ -20,14 +20,14 @@
     (alter (.-!log db) assoc v keyw))
   db)
 
-(defn conj [db v] ; XXX: name change
+(defn conj [db v]
   {:pre [(mutable-indexed-set? db)]
-   :post [(mutable-indexed-set? %)]}
+   :post [(identical? db %)]}
   (alter-contents db clj/conj :added v))
 
-(defn disj [db v] ; XXX: name change
+(defn disj [db v]
   {:pre [(mutable-indexed-set? db)]
-   :post [(mutable-indexed-set? %)]}
+   :post [(identical? db %)]}
   (alter-contents db clj/disj :removed v))
 
 (defn- alter-markers [db op markers]
@@ -35,14 +35,14 @@
     (apply alter (.-!s db) op markers)
     db))
 
-(defn mark [db & markers] ; XXX: name change
+(defn mark [db & markers]
   {:pre [(mutable-indexed-set? db)]
-   :post [(mutable-indexed-set? %)]}
+   :post [(identical? db %)]}
   (alter-markers db c/mark markers))
 
-(defn unmark [db & markers] ; XXX: name change
+(defn unmark [db & markers]
   {:pre [(mutable-indexed-set? db)]
-   :post [(mutable-indexed-set? %)]}
+   :post [(identical? db %)]}
   (alter-markers db c/unmark markers))
 
 (defn- db-agent-send [db f]
@@ -50,7 +50,7 @@
 
 (defn flush [db]
   {:pre [(mutable-indexed-set? db)]
-   :post [(mutable-indexed-set? %)]}
+   :post [(identical? db %)]}
   (let [sema (promise)]
     (db-agent-send db (fn [db io] (deliver sema nil)))
     @sema)
@@ -71,13 +71,16 @@
 
 (defn mutable-indexed-set
   ([] (mutable-indexed-set (constantly nil)))
-  ([io] (let [db (MutableSet. (ref (into (c/indexed-set) (io)))
-                              (ref {})
-                              (agent io))]
-          (add-watch (.-!log db)
-                     ::log-agent
-                     (fn [& args] (db-agent-send db process-logs)))
-          db)))
+  ([io]
+   {:pre [(fn? io)]
+    :post [(mutable-indexed-set? %)]}
+   (let [db (MutableSet. (ref (into (c/indexed-set) (io)))
+                         (ref {})
+                         (agent io))]
+     (add-watch (.-!log db)
+                ::log-agent
+                (fn [& args] (db-agent-send db process-logs)))
+     db)))
 
 (defn- rate-limit-io
   ([io] (rate-limit-io io 250))

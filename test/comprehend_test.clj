@@ -30,8 +30,6 @@
     (is (not= (indexed-set 1 2) (indexed-set 1 2 3)))
     (is (.equals (indexed-set 1 2) (indexed-set 1 2)))
     (is (not (.equals (indexed-set 1 2) (indexed-set 1 2 3))))
-    (comment is (not= (c/indexed-set [1]) (c/indexed-set ^::c/opaque [1])))
-    (comment is (not (.equals (c/indexed-set [1]) (c/indexed-set ^::c/opaque [1]))))
     (let [a (gensym)] (invariance-test S (set (disj (conj S a) a))))
     (invariance-test S (set (disj S (gensym))))
     (invariance-test S (contains? S (first S)))
@@ -180,25 +178,7 @@
       (is (= (comprehend (indexed-set [[1] 2] 3)
                          [[x] y]
                          x)
-             [1])))
-    (comment testing "Opaque collections"
-      (is (= (set (comprehend (indexed-set #{[1] ^::c/opaque [2]})
-                              #{x}
-                              x))
-             #{[1] [2]}))
-      (is (= (comprehend (indexed-set #{[1] ^::c/opaque [2]})
-                         #{[x]}
-                         x)
-             [1]))
-      (comment testing "Automatic hinting of opaqueness in patterns"
-        (is (= (comprehend (indexed-set ^::c/opaque [1 [2]])
-                           [1 [2]]
-                           true)
-               [true]))
-        (is (= (c/comprehend (c/indexed-set [1] [2])
-                             [2]
-                             true)
-               [true])))))
+             [1]))))
   (testing "Forward comprehension"
     (is (= (set (comprehend :mark :b
                             (-> (indexed-set [1 2] [2 3] [3 4] [5 6])
@@ -272,7 +252,7 @@
       (is (= m (meta (disj s (first s)))))
       (is (= m (meta (mark s :a :b :c))))))
   (testing "up/top"
-    (comment is (= (c/comprehend (c/indexed-set [1 [2 [3]]])
+    (is (= (c/comprehend (c/indexed-set [1 [2 [3]]])
                                  [x [y [z]]]
                                  (c/up z 2))
                    (c/comprehend (c/indexed-set [1 [2 [3]]])
@@ -378,13 +358,17 @@
   (is (= (set (c/comprehend (c/indexed-set {:a 1} {:b 1} {:a 2 :b 2})
                             {:a x}
                             (c/up x)))
+         '#{([:a 1]) ([:a 2])}))
+  (is (= (set (c/comprehend (c/indexed-set {:a 1} {:b 1} {:a 2 :b 2})
+                            {:a x}
+                            (c/up x 2)))
          '#{({:a 1}) ({:b 2, :a 2})}))
   (is (= (c/comprehend (c/indexed-set #{:a 1} #{[:a] 2} #{[[:a]] 3})
                        #{[x]}
                        #{[[x]]}
                        (set (c/top x)))
          '(#{#{2 [:a]} #{3 [[:a]]}})))
-  (comment as-> (c/indexed-set '[#{[([1])]}] '[#{[([2])]}] '[#{[([3])]}] '[#{[([4])]}]) $
+  (as-> (c/indexed-set '[#{[([1])]}] '[#{[([2])]}] '[#{[([3])]}] '[#{[([4])]}]) $
     (c/comprehend $
                   [#{[[[x]]]}]
                   (is (= (c/up x 3)
@@ -442,26 +426,10 @@
   (is (= (set (c/auto-comprehend (c/indexed-set [1 [2 [3]]] [10 [20 [30 [40]]]])
                                  [a [b c]]))
          #{{:a 1 :b 2 :c [3]} {:a 10 :b 20 :c [30 [40]]}}))
-
-  (comment is (= (set (c/comprehend (c/indexed-set [1] ^::c/opaque [2])
-                                    [x]
-                                    y
-                                    [x y]))
-                 #{[1 [1]] [1 [2]]}))
-  (comment is (= (c/comprehend (c/indexed-set [^::c/opaque [1]])
-                               [[x]]
-                               x)
-                 nil))
-  (is (= (c/comprehend (c/indexed-set [1] [^::c/opaque [1]])
-                       [[x]]
-                       x)
-         '(1)))
   (is (= (c/indexed-set [1])
          (c/indexed-set [1])))
   (is (not= (c/indexed-set 1)
-            (mark (c/indexed-set 1) :a)))
-  (comment is (not= (c/indexed-set [1])
-                    (c/indexed-set ^::c/opaque [1])))
+            (mark (c/indexed-set 1) :a)))2
   (is (= (-> (indexed-set 1)
              (conj 2)
              (mark :a))

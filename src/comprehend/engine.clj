@@ -243,7 +243,7 @@
                           (collect-known-values constraints)))
        constraints-as-mmap))
 
-(defn develop [!cache constraints]
+(defn develop [!cache constraints] ; XXX can be further optimized
   ((ct/fix (partial develop1 !cache)) constraints))
 
 (defn quantify1 [m]
@@ -271,7 +271,7 @@
 ;; OPERATIONS ON METAVERSES OF CONSTRAINT COLLECTIONS
 ;;
 
-(defn develop-all1 [!cache metaverse]
+(defn develop-all1 [!cache metaverse] ; XXX can be further optimized
   {:pre [(every? constraint-coll? metaverse)]
    :post [(set? %)
           (every? (partial constraint-map?) %)]}
