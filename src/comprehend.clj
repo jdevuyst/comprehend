@@ -71,12 +71,17 @@
   ([hs cache]
    {:pre [(set? hs)]
     :post [(indexed-set? %)]}
-   (Set. hs (atom cache) {})))
+   (if (indexed-set? hs)
+     hs
+     (Set. hs (atom cache) {}))))
 
 (defn unindex [s]
-  {:pre [(indexed-set? s)]
-   :post [(set? s)]}
-  (.-hs s))
+  {:pre [(set? s)]
+   :post [(set? %)
+          (-> % indexed-set? not)]}
+  (if (indexed-set? s)
+    (.-hs s)
+    s))
 
 (defn indexed-set
   ([] (index #{}))
@@ -144,25 +149,26 @@
 
 (def ^{:dynamic true :private true} *scope*)
 
-(defn up* [x]
+(defn up* [x n]
   {:pre [(ce/varname x)]}
-  (->> (*scope* x)
-       meta
-       :up))
+  (-> (*scope* x)
+      meta
+      :up
+      (nth (dec n) nil)))
 
 (defn top* [x]
-  {:pre [(ce/varname x)]}
-  {:post [x]}
-  (->> (*scope* x)
-       meta
-       :top))
+  {:pre [(ce/varname x)]
+   :post [(coll? %)]}
+  (-> (*scope* x)
+      meta
+      :top))
 
 (defmacro up
-  ([x] `(up* (ce/variable '~x)))
-  ([x n] `(meta (up* (ce/variable '~x)))))
+  ([x] `(up ~x 1))
+  ([x n] `(up* (ce/variable '~x) ~n)))
 
 (defmacro top [x]
-  `(top* (ce/variable '~x)))
+  `(-> '~x ce/variable top*))
 
 (defn- comprehend* [env f args]
   (let [marker? (= :mark (first args))

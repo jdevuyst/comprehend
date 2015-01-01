@@ -7,6 +7,44 @@
 (ct/assert-notice)
 
 ;;
+;; DOMAIN METADATA
+;;
+
+(require '[print.foo :refer [print-and-return print-defn print-cond print-if print-let print-> print->>]])
+
+(defn- valid-md? [md]
+  (or (nil? md)
+      (and (map? md)
+           (or (-> md :top nil?)
+               (-> md :top coll?))
+           (or (-> md :up nil?)
+               (and (-> md :up coll?)
+                    (every? coll? (:up md)))))))
+
+(defn- merge-md [md1 md2]
+  {:pre [(valid-md? md1)
+         (valid-md? md2)]
+   :post [(valid-md? %)]}
+  {:top (set/union (:top md1)
+                   (:top md2))
+   :up (let [seq1 (:up md1)
+             seq2 (:up md2)
+             [seq1 seq2] (if (> (count seq1) (count seq2))
+                           [seq1 seq2]
+                           [seq2 seq1])
+             seq2 (concat seq2 (repeat nil))]
+         (map set/union seq1 seq2))})
+
+(defn- upmd [old-meta new-parent]
+  {:pre [(valid-md? old-meta)
+         (coll? new-parent)
+         (not= clojure.lang.MapEntry (type new-parent))]
+   :post [(valid-md? %)]}
+  (let [new-parent (with-meta new-parent old-meta)]
+    {:top (or (:top old-meta) [new-parent])
+     :up (cons [new-parent] (:up old-meta))}))
+
+;;
 ;; FIRST CLASS LOGICAL TERMS
 ;;
 
@@ -87,6 +125,13 @@
        (every? varname (keys x))
        (every? (partial = 1) (map count (vals x)))))
 
+(defn merge-doms [coll1 coll2]
+  {:pre [(or (nil? coll1) (coll? coll1))
+         (or (nil? coll2) (coll? coll2))]
+   :post [(coll? %)]}
+  (with-meta (ct/partial-intersection coll1 coll2)
+             (merge-md (meta coll1) (meta coll2))))
+
 (defn constraints-as-mmap [constraints]
   {:pre [(r/reduce (fn f
                      ([b x y] (f b [x y]))
@@ -116,30 +161,9 @@
                  (transient {}))
        persistent!))
 
-(defn merge-doms [coll1 coll2]
-  {:pre [(or (nil? coll1) (coll? coll1))
-         (or (nil? coll2) (coll? coll2))]
-   :post [(coll? %)]}
-  (with-meta (ct/partial-intersection coll1 coll2)
-             {:top (set/union (-> coll1 meta :top)
-                              (-> coll2 meta :top))
-              :up (set/union (-> coll1 meta :up)
-                             (-> coll2 meta :up))}))
-
 ;;
 ;; (PARTIAL) UNIFICATION WITH STRUCTURES
 ;;
-
-(defn- upmd [old-meta new-parent]
-  {:pre [(or (nil? old-meta) (map? old-meta))
-         (coll? new-parent)
-         (not= clojure.lang.MapEntry (type new-parent))]
-   :post [(map? %)
-          (-> % :top coll?)
-          (-> % :up coll?)]}
-  (let [new-parent (with-meta new-parent old-meta)]
-    {:top (or (:top old-meta) [new-parent])
-     :up [new-parent]}))
 
 (defn unification-type [x]
   (cond (map? x) :map
