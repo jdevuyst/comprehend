@@ -31,7 +31,9 @@
                            [seq1 seq2]
                            [seq2 seq1])
              seq2 (concat seq2 (repeat nil))]
-         (map set/union seq1 seq2))})
+         (map set/union seq1 seq2))
+   :simplified (set/union (:simplified md1)
+                          (:simplified md2))})
 
 (defn- upmd [old-meta new-parent]
   {:pre [(valid-md? old-meta)
@@ -40,7 +42,8 @@
    :post [(valid-md? %)]}
   (let [new-parent (with-meta new-parent old-meta)]
     {:top (or (:top old-meta) [new-parent])
-     :up (cons [new-parent] (:up old-meta))}))
+     :up (cons [new-parent] (:up old-meta))
+     :simplified (:simplified old-meta)}))
 
 ;;
 ;; FIRST CLASS LOGICAL TERMS
@@ -233,7 +236,7 @@
     (assert (model? const-map))
     (if (and (-> query varname not)
              (-> const-map count pos?)
-             (not= x* (-> dom meta ::simplified)))
+             (-> dom meta :simplified (get x*) not))
       [[x* (as-> (ct/memoized !cache
                               indexed-match-in
                               !cache
@@ -245,7 +248,7 @@
                                       (vals %))
                            $)
                  (into #{} $)
-                 (with-meta $ (assoc (meta dom) ::simplified x*)))]]
+                 (with-meta $ (assoc (meta dom) :simplified #{x*})))]]
       [constraint])))
 
 (defn collect-known-values [constraints]

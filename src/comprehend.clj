@@ -18,6 +18,11 @@
   (conjd-root-el [_ v])
   (disjd-root-el [_ v]))
 
+(extend-type clojure.core.cache.BasicCache
+  CacheProtocolExtension
+  (conjd-root-el [c v] c)
+  (disjd-root-el [c v] c))
+
 (extend-type clojure.core.cache.SoftCache ; XXX work in progress
   CacheProtocolExtension
   (conjd-root-el [c v] c)

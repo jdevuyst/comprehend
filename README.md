@@ -1,6 +1,6 @@
 # Comprehend
 
-Clojure in-memory database modeled on sets, not tables. Comprehend supports pattern matching, forward matching, rewriting, and transactional storage. Indexes are lazily constructed and stored in replacable caches. Queries are evaluated using parallel folding.
+Clojure in-memory database modeled on sets, not tables. Comprehend supports pattern matching, forward matching, rewriting, and transactional storage. Indexes are lazily constructed and stored in replaceable caches. Queries are evaluated using parallel folding.
 
 Comprehend contains a data structure for immutable indexed sets and a macro `comprehend` for pattern matching on such sets. It also comes with features that make it easy to update indexed sets based on pre-existing patterns.
 
@@ -236,6 +236,16 @@ Building on the above features, `comprehend.mutable` comes with a [flat file dat
 
 Whenever `conj!` or `disj!` is used on `db`, the new contents are written to the same file. Note that markers and other metadata are not currently serialized to disk.
 
+## Replaceable caches
+
+By default, indexed sets use a soft cache. This means that the responsibility of disposing of indexes is delegated to the garbage collector. Use `c/index` to swap in a custom cache:
+
+```clojure
+(c/index s cache)
+```
+
+Here, `s` can either be an indexed or a regular set; `cache` is expected to be an object that implements both `clojure.core.cache/CacheProtocol` from [`core.cache`](https://github.com/clojure/core.cache) and `c/CacheProtocolExtension`.
+
 ## Other features
 
 A `c/comprehend` expression may return `::c/skip` to filter results:
@@ -289,16 +299,6 @@ Finally, the package `comprehend.tools` contains several functions that might co
 ```
 
 Similarly, `(ct/fix f)` returns a function that iteratively applies `f` to its arguments until a fixed point is found, which it then returns.
-
-## Replaceable caches
-
-By default, indexed sets use a soft cache. This means that the responsibility of disposing of indexes is delegated to the garbage collector. Use `c/index` to swap in a custom cache:
-
-```clojure
-(c/index s cache)
-```
-
-Here, `s` can either be an indexed or a regular set; `cache` is expected to be an object that implements both `clojure.core.cache/CacheProtocol` from [`core.cache`](https://github.com/clojure/core.cache) and `c/CacheProtocolExtension`.
 
 ## Further information
 

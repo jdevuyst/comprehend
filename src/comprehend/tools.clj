@@ -1,8 +1,14 @@
 (ns comprehend.tools
-  (:refer-clojure :exclude [memoize])
+  (:refer-clojure :exclude [println memoize])
   (:require [clojure.set :as set]
             [clojure.walk :as w]
+            [clojure.string :as string]
             [clojure.core.cache :as cache]))
+
+(defn println [& args]
+  (.write *out* (str (string/join \space args)
+                     \newline))
+  (flush))
 
 (defmacro assert-notice []
   (when *assert*

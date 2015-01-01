@@ -1,8 +1,9 @@
 (ns comprehend.benchmark
-  (:require [comprehend :as c]
-            [clojure.core.logic :as l]
+  (:require [clojure.test :refer :all]
             [clojure.set :as set]
-            [clojure.test :refer :all]))
+            [comprehend :as c]
+            [clojure.core.cache :as cache]
+            [clojure.core.logic :as l]))
 
 ; This file benchmarks several solutions to a single problem.
 ;
@@ -68,6 +69,9 @@
                                                              b))))
                                         {}
                                         @!G)))
+
+      (swap! !S c/index (cache/basic-cache-factory {}))
+      (swap! !M c/index (cache/basic-cache-factory {}))
 
       (print "Finding paths using comprehend and the set of pairs... ")
       (flush)
