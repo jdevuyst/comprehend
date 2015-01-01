@@ -4,7 +4,8 @@
             [comprehend.engine :refer :all]
             [clojure.walk :as w]
             [clojure.core.cache :as cache]
-            [clojure.core.reducers :as r]))
+            [clojure.core.reducers :as r]
+            [print.foo :refer [print-and-return print-defn print-cond print-if print-let print-> print->>]]))
 
 
 
@@ -127,12 +128,12 @@
                   (develop1 !cache)
                   model-as-subst-map)
              {y 2, x 1, z 3}))
-      (is (->> (list [[x {y [x z]}] #{[1 {2 [1 3] :a :b}]}]
-                     [{100 y} #{{100 2}}]
-                     [{3 x} #{{3 4}}])
-               (develop1 !cache)
-               (develop1 !cache)
-               empty?)))
+      (is (= (->> (list [[x {y [x z]}] #{[1 {2 [1 3] :a :b}]}]
+                        [{100 y} #{{100 2}}]
+                        [{3 x} #{{3 4}}])
+                  (develop1 !cache)
+                  (develop1 !cache))
+             {:inconsistent #{}})))
 
     (testing "quantify1"
       (let [x-dom #{1 2 3}
@@ -159,6 +160,10 @@
              [{x 1 y 2 z 3}])))
 
     (testing "find models"
+      (is (= (match-in !cache x #{1 2})
+             #{{x #{2}} {x #{1}}}))
+      (is (= (match-in !cache 1 #{1 2})
+             #{{}}))
       (is (= (->> (match-in !cache {x 2 y z} #{{1 2 3 4 5 6}})
                   (map model-as-subst-map)
                   set)

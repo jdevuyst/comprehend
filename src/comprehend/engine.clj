@@ -110,7 +110,7 @@
                    ([m k v]
                     (let [r (merge-doms (m k) v)]
                       (if (empty? r)
-                        (reduced (transient {}))
+                        (reduced (transient {:inconsistent #{}}))
                         (assoc! m k r)))))
                  (transient {}))
        persistent!))
@@ -276,12 +276,11 @@
    :post [(set? %)
           (every? (partial constraint-map?) %)]}
   (->> metaverse
-
-       (into [])
+       vec
 
        (r/map (partial develop !cache))
        (r/mapcat quantify1)
-       (r/filter not-empty)
+       (r/filter (comp not :inconsistent))
        (r/map constraints-as-mmap)
 
        (r/fold 1

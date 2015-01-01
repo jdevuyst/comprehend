@@ -3,7 +3,8 @@
             [comprehend :refer :all]
             [comprehend :as c]
             [comprehend.tools :as ctools]
-            [clojure.walk :as w]))
+            [clojure.walk :as w]
+            [print.foo :refer [print-and-return print-defn print-cond print-if print-let print-> print->>]]))
 
 (defmacro cursor-macro [form]
   (#'c/cursor form))
@@ -215,7 +216,7 @@
                (as-> s (comprehend :mark :a s x x))
                set)
            #{4 5 6})))
-  (comment testing "Strong equality and index integrity"
+  (testing "Strong equality and index integrity"
     (let [S (-> (indexed-set)
                 (mark :a :b)
                 (into '([[:test] [[[#{:a}]]]]
@@ -224,17 +225,11 @@
                         4)))
           a [[[[[2 [[[#{:a}]]]]]] 3] (gensym)]
           b [[:test] [[[#{:a}]]]]
-          norm (partial w/postwalk #(if (map? %)
-                                      (->> %
-                                           (filter (comp not empty? second))
-                                           (into {}))
-                                      %))
           strong= #(and (= (indexed-set? %1)
                            (indexed-set? %2))
                         (= %1 %2)
-                        (= (.-m %1) (.-m %2))
-                        (= (.-markers %1) (.-markers %2))
-                        (= (norm (.-idx %1)) (norm (.-idx %2))))]
+                        (= (.-hs %1) (.-hs %2))
+                        (= (.-markers %1) (.-markers %2)))]
       (is (not (strong= S (conj S a))))
       (is (strong= S (disj S a)))
       (is (strong= (conj S a) (conj (conj S a) a)))
