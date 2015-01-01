@@ -317,39 +317,7 @@
                          [y 3]
                          [(c/up x) (c/up y)])
            '([([1 2]) ([1 3])]))))
-  (comment testing "Updates"
-    (is (= (set (c/comprehend (c/indexed-set [1] [[2 1]] [[[1]]])
-                              [[y x]]
-                              [[[x]]]
-                              (set (#'c/paths (cursor-macro x)))))
-           #{#{'([[2 1]] 0 1) '([[[1]]] 0 0 0)}}))
-    (is (= (set (c/comprehend (c/indexed-set [1] [[2 1]] [[[1]]])
-                              [[y x]]
-                              [[[x]]]
-                              (c/oust x)))
-           #{{'([[2 1]] 0 1) ::c/remove
-              '([[[1]]] 0 0 0) ::c/remove}}))
-    (let [m {[1 2 3 4] :a
-             [5 6 7] :b
-             [8 9] :c}]
-      (is (= (#'c/close-update-map m)
-             (#'c/close-update-map (seq m))
-             {[1] ::c/traverse
-              [1 2] ::c/traverse
-              [1 2 3] ::c/traverse
-              [1 2 3 4] :a
-              [5] ::c/traverse
-              [5 6] ::c/traverse
-              [5 6 7] :b
-              [8] ::c/traverse
-              [8 9] :c})))
-    (is (= (c/rcomprehend (c/indexed-set [1] [[2 1]] [[[1]]])
-                          [[y x]]
-                          [[[x]]]
-                          (c/update (c/indexed-set [1] [[2 1]] [[[1]]])
-                                    (c/oust x)))
-           (c/indexed-set [1] [[2]] [[[]]]))))
-  (comment testing "Other"
+  (testing "Other"
     (is (= (-> (indexed-set)
                (mark :a :b :c)
                (into [1 2])
@@ -359,8 +327,9 @@
                (conj 5)
                (mark :c)
                (unmark :b :c)
-               .-markers)
-           #{:a}))
+               ((juxt #(additions % :a)
+                      #(additions % :b))))
+           '[#{5} #{}]))
     (is (= (set (c/auto-comprehend (c/indexed-set [1 2 [3 [4]]] [10 20 [30 [40]]])
                                    [a b [c [d]]]))
            #{{:a 1 :b 2 :c 3 :d 4} {:a 10 :b 20 :c 30 :d 40}}))

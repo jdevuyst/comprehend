@@ -227,8 +227,8 @@
 
 (defn collect-known-values [constraints]
   (->> constraints
-       (filter (fn [[k v]] (varname k)))
-       (filter (fn [[k v]] (= 1 (count v))))
+       (r/filter (fn [[k v]] (varname k)))
+       (r/filter (fn [[k v]] (= 1 (count v))))
        (r/map (fn [[k v]] [k (first v)]))
        (into {})))
 
@@ -299,6 +299,16 @@
 ;; FINDING MODELS
 ;;
 
+(defn match-in [!cache x* dom]
+  {:pre [(coll? dom)
+         (grounded? dom)]
+   :post [(every? model? %)]}
+  (develop-all !cache [[[x* dom]]]))
+
+(defn- indexed-match-in [!cache x* dom ks]
+  (set/index (match-in !cache x* (with-meta dom nil))
+             ks))
+
 (defn match-with [!cache xs* dom]
   {:pre [(coll? xs*)
          (coll? dom)
@@ -307,12 +317,19 @@
   (->> [(map (fn [x*] [x* dom]) xs*)]
        (develop-all !cache)))
 
-(defn match-in [!cache x* dom]
-  {:pre [(coll? dom)
-         (grounded? dom)]
+(defn forward-match-with [!cache xs* dom narrowed-dom]
+  {:pre [(coll? xs*)
+         (coll? dom)
+         (grounded? dom)
+         (coll? narrowed-dom)
+         (set/subset? narrowed-dom dom)]
    :post [(every? model? %)]}
-  (match-with !cache [x*] dom))
-
-(defn indexed-match-in [!cache x* dom ks]
-  (set/index (match-in !cache x* (with-meta dom nil))
-             ks))
+  (let [step1 (->> xs*
+                   (map (fn [x*] [x* (develop !cache [[x* dom]])]))
+                   (into {}))]
+    (develop-all !cache
+                 (for [x* xs*]
+                   (->> (dissoc step1 x*)
+                        vals
+                        (mapcat identity)
+                        (cons [x* narrowed-dom]))))))

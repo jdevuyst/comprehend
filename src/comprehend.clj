@@ -31,7 +31,8 @@
   (count [this] (.count hs))
   clojure.lang.IPersistentSet
   (seq [this] (.seq hs))
-  (cons [this o] (Set. (.cons hs o)
+  (cons [this o]
+        (Set. (.cons hs o)
                        (atom (conjd-root-el @!cache o))
                        (reduce (fn [m [k v]]
                                  (assoc m k (conj v o)))
@@ -95,11 +96,14 @@
         (.-!cache s)
         (reduce dissoc (.-markers s) markers)))
 
+(defn additions [s marker]
+  (get (.-markers s) marker #{}))
+
 (defmacro comprehend [& args]
   (comprehend* &env
                `(comp seq
                       (partial filter
-                               (comp not (partial = ::skip)))
+                               (partial not= ::skip))
                       #(map (partial %1 %2) %3))
                args))
 
@@ -137,18 +141,6 @@
     (filter (complement (partial bound? env))
             (symbols env x))))
 
-(defn- annotate-ungrounded-terms [var? p] ; XXX delete this?
-  (w/postwalk (fn [x]
-                (if (coll? x)
-                  (with-meta x
-                             {::opaque (->> x
-                                            (filter #(or (var? %)
-                                                         (and (coll? %)
-                                                              (-> % meta ::opaque not))))
-                                            empty?)})
-                  x))
-              p))
-
 (def ^{:dynamic true :private true} *scope*)
 
 (defn up* [x]
@@ -184,7 +176,6 @@
         patterns (butlast rdecl)
         expr (last rdecl)
         explicit-vars (->> patterns (unbound-symbols env) set)
-        patterns (map (partial annotate-ungrounded-terms explicit-vars) patterns)
         marker-name (gensym "marker__")
         ren-name (gensym "ren__")]
     `(let [~s-name ~s
@@ -193,9 +184,14 @@
                        (mapcat (fn [x]
                                  [x (ce/variable x)]))
                        vec)
-              (ce/match-with (.-!cache ~s-name)
-                             [~@patterns]
-                             (.-hs ~s-name)))
+              ~(if marker
+                 `(ce/forward-match-with (.-!cache ~s-name)
+                                 [~@patterns]
+                             (.-hs ~s-name)
+                             (additions ~s-name ~marker-name))
+                 `(ce/match-with (.-!cache ~s-name)
+                                 [~@patterns]
+                             (.-hs ~s-name))))
             (~f (fn [~s-name constraints#]
                   (let [~(->> explicit-vars
                               (map (fn [x] [x (ce/variable x)]))
@@ -206,4 +202,4 @@
                 ~s-name)))))
 ; ~(if marker? ; and [either using rcomprehend or using let syntax] ; TODO optimize further
 ;    `(mark ~s-name ~marker-name)
-;    s-name))))))
+;    s-name)))))) ; XXX

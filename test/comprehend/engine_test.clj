@@ -182,7 +182,15 @@
                   (map model-as-subst-map)
                   set)
              #{{x 1 y 2 z 5}
-               {x 1 y 2 z 6}})))))
+               {x 1 y 2 z 6}}))
+      (is (= (->> (forward-match-with !cache
+                                      [[x y] [y x]]
+                                      #{[1 2] [2 1] [3 4] [4 5] [5 3] [6 6]}
+                                      #{[1 2] [2 1] [3 4] [4 5] [5 3]})
+                  (map model-as-subst-map)
+                  set)
+             #{{x 1 y 2}
+               {x 2 y 1}})))))
 
 (let [this-ns-name (ns-name *ns*)]
   (defn reload-and-test []
