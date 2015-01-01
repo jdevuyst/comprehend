@@ -330,7 +330,7 @@
    :post [(every? model? %)]}
   (develop-all !cache [[[x* dom]]]))
 
-(defn- indexed-match-in [!cache x* dom ks]
+(defn indexed-match-in [!cache x* dom ks]
   (set/index (match-in !cache x* (with-meta dom nil))
              ks))
 
