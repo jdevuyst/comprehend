@@ -33,11 +33,11 @@
   (seq [this] (.seq hs))
   (cons [this o]
         (Set. (.cons hs o)
-                       (atom (conjd-root-el @!cache o))
-                       (reduce (fn [m [k v]]
-                                 (assoc m k (conj v o)))
-                               {}
-                               markers)))
+              (atom (conjd-root-el @!cache o))
+              (reduce (fn [m [k v]]
+                        (assoc m k (conj v o)))
+                      {}
+                      markers)))
   (empty [this] (indexed-set))
   (equiv [this o] (or (identical? this o)
                       (and (indexed-set? o)
@@ -186,12 +186,12 @@
                        vec)
               ~(if marker
                  `(ce/forward-match-with (.-!cache ~s-name)
-                                 [~@patterns]
-                             (.-hs ~s-name)
-                             (additions ~s-name ~marker-name))
+                                         [~@patterns]
+                                         (.-hs ~s-name)
+                                         (additions ~s-name ~marker-name))
                  `(ce/match-with (.-!cache ~s-name)
                                  [~@patterns]
-                             (.-hs ~s-name))))
+                                 (.-hs ~s-name))))
             (~f (fn [~s-name constraints#]
                   (let [~(->> explicit-vars
                               (map (fn [x] [x (ce/variable x)]))
@@ -199,7 +199,6 @@
                         (ce/model-as-subst-map constraints#)]
                     (binding [*scope* constraints#]
                       ~expr)))
-                ~s-name)))))
-; ~(if marker? ; and [either using rcomprehend or using let syntax] ; TODO optimize further
-;    `(mark ~s-name ~marker-name)
-;    s-name)))))) ; XXX
+                ~(if marker? ; and [either using rcomprehend or using let syntax] ; TODO optimize further
+                   `(mark ~s-name ~marker-name)
+                   s-name))))))

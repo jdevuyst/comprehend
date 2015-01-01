@@ -16,7 +16,7 @@
                                 (require '[comprehend.tools :as ct])
                                 (require '[comprehend :as c])
                                 (require '[comprehend.tools-test :as ct-test])
-                                ; (require '[comprehend.mutable-test :as cmt])
+                                (require '[comprehend.mutable-test :as cm-test])
                                 (require '[comprehend.engine-test :as ce-test])
                                 (require '[comprehend-test :as c-test])
                                 (require '[comprehend.benchmark :as benchmark])
