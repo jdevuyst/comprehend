@@ -1,7 +1,11 @@
 (ns comprehend.mutable
-  (:refer-clojure :exclude [flush conj! disj!])
-  (:require [comprehend :as c]
+  (:refer-clojure :exclude [flush conj disj])
+  (:require [clojure.core :as clj]
+            [comprehend.tools :as ct]
+            [comprehend :as c]
             [clojure.edn :as edn]))
+
+(ct/assert-notice)
 
 (deftype MutableSet [!s !log a]
   clojure.lang.IDeref
@@ -10,33 +14,43 @@
 (defn mutable-indexed-set? [x]
   (= MutableSet (type x)))
 
-(defn- alter-contents! [db op keyw v]
+(defn- alter-contents [db op keyw v]
   (dosync
     (alter (.-!s db) op v)
     (alter (.-!log db) assoc v keyw))
   db)
 
-(defn conj! [db v]
-  (alter-contents! db conj :added v))
+(defn conj [db v] ; XXX: name change
+  {:pre [(mutable-indexed-set? db)]
+   :post [(mutable-indexed-set? %)]}
+  (alter-contents db clj/conj :added v))
 
-(defn disj! [db v]
-  (alter-contents! db disj :removed v))
+(defn disj [db v] ; XXX: name change
+  {:pre [(mutable-indexed-set? db)]
+   :post [(mutable-indexed-set? %)]}
+  (alter-contents db clj/disj :removed v))
 
-(defn- alter-markers! [db op markers]
+(defn- alter-markers [db op markers]
   (dosync
     (apply alter (.-!s db) op markers)
     db))
 
-(defn mark! [db & markers]
-  (alter-markers! db c/mark markers))
+(defn mark [db & markers] ; XXX: name change
+  {:pre [(mutable-indexed-set? db)]
+   :post [(mutable-indexed-set? %)]}
+  (alter-markers db c/mark markers))
 
-(defn unmark! [db & markers]
-  (alter-markers! db c/unmark markers))
+(defn unmark [db & markers] ; XXX: name change
+  {:pre [(mutable-indexed-set? db)]
+   :post [(mutable-indexed-set? %)]}
+  (alter-markers db c/unmark markers))
 
 (defn- db-agent-send [db f]
   (send-off (.-a db) #(do (f db %) %)))
 
 (defn flush [db]
+  {:pre [(mutable-indexed-set? db)]
+   :post [(mutable-indexed-set? %)]}
   (let [sema (promise)]
     (db-agent-send db (fn [db io] (deliver sema nil)))
     @sema)
@@ -84,4 +98,6 @@
                            (java.io.File. filename))))))
 
 (defn stored-indexed-set [filename]
+  {:pre [(string? filename)]
+   :post [(mutable-indexed-set? %)]}
   (-> filename edn-file-io rate-limit-io mutable-indexed-set))

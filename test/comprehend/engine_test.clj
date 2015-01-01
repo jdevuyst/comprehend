@@ -7,8 +7,6 @@
             [clojure.core.reducers :as r]
             [print.foo :refer [print-and-return print-defn print-cond print-if print-let print-> print->>]]))
 
-
-
 (def VarType comprehend.engine.Var)
 
 (def !cache (atom (cache/soft-cache-factory {})))
