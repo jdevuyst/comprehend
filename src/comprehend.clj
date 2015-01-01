@@ -165,10 +165,10 @@
 
 (defmacro up
   ([x] `(up ~x 1))
-  ([x n] `(up* (ce/variable '~x) ~n)))
+  ([x n] `(-> '~x ce/variable (up* ~n) distinct)))
 
 (defmacro top [x]
-  `(-> '~x ce/variable top*))
+  `(-> '~x ce/variable top* distinct))
 
 (defn- comprehend* [env f args]
   (let [marker? (= :mark (first args))

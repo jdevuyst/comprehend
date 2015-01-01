@@ -10,8 +10,6 @@
 ;; DOMAIN METADATA
 ;;
 
-(require '[print.foo :refer [print-and-return print-defn print-cond print-if print-let print-> print->>]])
-
 (defn- valid-md? [md]
   (or (nil? md)
       (and (map? md)

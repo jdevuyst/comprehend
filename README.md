@@ -1,15 +1,6 @@
 # Comprehend
 
-*WARNING*
-> This branch contains an in-progress rewrite of Comprehend. The rewritten version no longer uses the [`core.logic`](https://github.com/clojure/core.logic) unifier, nor its `PLDB` database. These have been replaced by a custom unifier and by laizily loaded indices with swappable caches. The aim of the rewrite is to improve performance and memory use.
->
-> Presently the core functionality has been rewritten in terms of the new engine. Markers and cursors have not yet been ported. The new engine currently lacks several obvious optimizations, but preliminary tests already suggest a nice performance boost.
->
-> The syntax and semantics of both implementations are expected to be roughly the same. The behavior of minor features (most notably `::c/opaque`) is subject to change. Beware that the documentation below has not yet been updated to reflect these changes.
->
-> See the [pldb-impl branch](https://github.com/jdevuyst/comprehend/tree/pldb-impl) for the (stable) `core.logic` based implementation of Comprehend.
-
-Clojure in-memory database modeled on sets, not tables. Comprehend supports pattern matching, forward matching, rewriting, and transactional storage.
+Clojure in-memory database modeled on sets, not tables. Comprehend supports pattern matching, forward matching, rewriting, and transactional storage. Indexes are lazily constructed and stored in replacable caches. Queries are evaluated using parallel folding.
 
 Comprehend contains a data structure for immutable indexed sets and a macro `comprehend` for pattern matching on such sets. It also comes with features that make it easy to update indexed sets based on pre-existing patterns.
 
@@ -37,7 +28,7 @@ Creating indexed sets is no different than creating other collections in Clojure
 
 The functions `cons`, `conj`, `disj`, `contains?`, `get`, `count`, `hash`, `empty`, and `seq` operate on indexed sets as expected. Moreover, `(s k)` = `(get s k)` if `s` is an indexed set, and if `k` is a symbol or keyword then `(k s)` = `(get s k)`.
 
-Use the function `c/indexed-set?` to test if an object is an indexed set.
+Use the function `c/indexed-set?` to test if an object is an indexed set. Use `c/index` to convert an existing set into an indexed set. Similarly, `c/unindex` converts an indexed set into a regular (hash) set.
 
 Indexed sets shine when performing pattern matching:
 
@@ -97,9 +88,27 @@ When a complex pattern matches a nested structure, it can sometimes be useful to
 Use `c/up` or `c/top` within a result expression to obtain the collections that were matched as containing the variable `x`.
 
 ```clojure
+(c/comprehend (c/indexed-set #{1})
+              #{x}
+              (c/up x))
+;=> ((#{1}))
+```
+
+When `c/up` is applied to a variable that matches a map key or value, it returns the matching key-value pairs:
+
+```clojure
 (c/comprehend (c/indexed-set {:a 1} {:b 1} {:a 2 :b 2})
               {:a x}
               (c/up x))
+;=> (([:a 1]) ([:a 2])}))
+```
+
+Additionally, `c/up` takes an optional second argument `n` for navigating upwards `n` steps.
+
+```clojure
+(c/comprehend (c/indexed-set {:a 1} {:b 1} {:a 2 :b 2})
+              {:a x}
+              (c/up x 2))
 ;=> (({:a 1}) ({:b 2, :a 2}))
 ```
 
@@ -111,13 +120,6 @@ Notice that `c/up` and `c/top` return lists of containers. The following example
               #{[[x]]}
               (c/top x))
 ;=> ((#{2 [:a]} #{3 [[:a]]}))
-```
-
-It's also possible to apply `c/up` and `c/top` to a previous result of `c/up`. Additionally, `c/up` takes an optional second argument `n` for navigating upwards `n` steps. As such,
-
-```clojure
-(assert (= (c/up x 3)
-           (mapcat #(c/up %) (c/up 2))))
 ```
 
 ## Updating indexed sets
@@ -190,16 +192,16 @@ The namespace `comprehend.mutable` contains a mutable abstraction for indexed se
 
 (def db (cm/mutable-indexed-set))
 
-(cm/conj! db 1)
-(cm/conj! db 2)
-(cm/disj! db 2)
-(cm/conj! db 3)
+(cm/conj db 1)
+(cm/conj db 2)
+(cm/disj db 2)
+(cm/conj db 3)
 
 (seq @db)
 ;=> (1 3)
 ```
 
-Behind the scenes mutable indexed sets maintain a ref to a regular (immutable) indexed set. Use the functions `cm/conj!`, `cm/disj!`, `cm/mark!`, and `cm/unmark!` to update mutable indexed sets. Use `deref` (or `@`) to obtain the backing immutable container.
+Behind the scenes mutable indexed sets maintain a ref to a regular (immutable) indexed set. Use the functions `cm/conj`, `cm/disj`, `cm/mark`, and `cm/unmark` to update mutable indexed sets. Use `deref` (or `@`) to obtain the backing immutable container.
 
 Upon instantiation it is possible to configure mutable sets to load and save data via a custom function. When given no arguments, the function should return a sequence to load into the indexed set. Whenever the mutable indexed set is modified, the function is called in a separate thread with two arguments—the updated immutable indexed set and a changelog.
 
@@ -210,18 +212,18 @@ Upon instantiation it is possible to configure mutable sets to load and save dat
 
 (def db (cm/mutable-indexed-set f))
 
-(cm/conj! db 4) ; {4 :added} => #{1 2 3 4}
-(cm/disj! db 4) ; {4 :removed} => #{1 2 3}
-(cm/conj! db 5) ; {5 :added} => #{1 2 3 5}
+(cm/conj db 4) ; {4 :added} => #{1 2 3 4}
+(cm/disj db 4) ; {4 :removed} => #{1 2 3}
+(cm/conj db 5) ; {5 :added} => #{1 2 3 5}
 ```
 
 Transactions are supported using Clojure's software transactional memory (STM):
 
 ```clojure
 (dosync
-  (cm/conj! db 6)
-  (cm/disj! db 6)
-  (cm/conj! db 7)) ; {6 :removed, 7 :added} => #{1 2 3 5 7}
+  (cm/conj db 6)
+  (cm/disj db 6)
+  (cm/conj db 7)) ; {6 :removed, 7 :added} => #{1 2 3 5 7}
 ```
 
 Moreover, changelogs from different transactions are coalesced when `db` is modified faster than `f` can handle.
@@ -256,30 +258,6 @@ The macro `c/auto-comprehend` is used like `c/comprehend` but with the last argu
 ;=> ({:a 1 :b 2 :c [3]} {:a 10 :b 20 :c [30 [40]]})
 ```
 
-Indexing collections can be slow. That is why Comprehend allows indexing to be disabled on a collection by collection basis:
-
-```clojure
-(c/comprehend (c/indexed-set [1] ^::c/opaque [2])
-              [x]
-              y
-              [x y])
-;=> ([1 [1]] [1 [2]])
-```
-
-Think of `^::c/opaque x` as saying that you will not attempt pattern matching on the contents of `x`. Beware that such matching might in fact succeed under certain conditions:
-
-```clojure
-(c/comprehend (c/indexed-set [^::c/opaque [1]])
-              [[x]]
-              x)
-;=> nil
-
-(c/comprehend (c/indexed-set [1] [^::c/opaque [1]])
-              [[x]]
-              x)
-;=> (1)
-```
-
 Sets are considered equivalent by `=` if and only if they are indexed and marked equivalently.
 
 ```clojure
@@ -294,28 +272,25 @@ Sets are considered equivalent by `=` if and only if they are indexed and marked
                (conj 2)
                (c/mark :a))))
 
-(assert (not= (c/indexed-set [1])
-              (c/indexed-set ^::c/opaque [1])))
-
 (assert (not= (c/indexed-set 1) #{1}))
 ```
 
-Finally, Comprehend comes with a function `c/fix` and a macro `c/fixpoint` for computing fixed points. They are useful for closing indexed sets under a rewriting operation. The following example computes the transitive closure of an indexed set:
+Finally, the package `comprehend.tools` contains several functions that might come in handy when using Comprehend. For example, it contains a function `comprehend.tools/fix` and a macro `comprehend.tools/fixpoint` for computing fixed points. These are useful for closing indexed sets under a rewriting operation. The following example computes the transitive closure of an indexed set:
 
 ```clojure
-(c/fixpoint [s (c/indexed-set [1 2] [2 3] [3 4])]
-            (c/rcomprehend [s' s]
-                           [a b]
-                           [b c]
-                           (conj s' [a c])))
+(require '[comprehend.tools :as ct])
+
+(ct/fixpoint [s (c/indexed-set [1 2] [2 3] [3 4])]
+             (c/rcomprehend [s' s]
+                            [a b]
+                            [b c]
+                            (conj s' [a c])))
 ;=> (c/indexed-set [1 2] [2 3] [3 4] [1 3] [2 4] [1 4])
 ```
 
-Similarly, `(c/fix f)` returns a function that iteratively applies `f` to its arguments until a fixed point is found, which it then returns.
+Similarly, `(ct/fix f)` returns a function that iteratively applies `f` to its arguments until a fixed point is found, which it then returns.
 
 ## Further information
-
-Comprehend is powered by [`core.logic`](https://github.com/clojure/core.logic). I explain some of the main ideas behind the implementation in a [blog post](http://jdevuyst.blogspot.com/2014/05/comprehend-clojure-pattern-matching.html).
 
 More examples:
 
