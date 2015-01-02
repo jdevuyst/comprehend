@@ -5,8 +5,6 @@
             [comprehend :as c]
             [clojure.edn :as edn]))
 
-(ct/assert-notice)
-
 (deftype MutableSet [!s !log a]
   clojure.lang.IDeref
   (deref [this] @!s))

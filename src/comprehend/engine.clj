@@ -4,13 +4,13 @@
             [clojure.walk :as w]
             [clojure.core.reducers :as r]))
 
-(ct/assert-notice)
+(comment ct/assert-notice)
 
 ;;
 ;; DOMAIN METADATA
 ;;
 
-(defn- valid-md? [md]
+(comment defn- valid-md? [md]
   (or (nil? md)
       (and (map? md)
            (or (-> md :top nil?)
@@ -20,9 +20,9 @@
                     (every? coll? (:up md)))))))
 
 (defn- merge-md [md1 md2]
-  {:pre [(valid-md? md1)
-         (valid-md? md2)]
-   :post [(valid-md? %)]}
+  (comment {:pre [(valid-md? md1)
+                  (valid-md? md2)]
+            :post [(valid-md? %)]})
   {:top (set/union (:top md1)
                    (:top md2))
    :up (let [seq1 (:up md1)
@@ -36,10 +36,10 @@
                           (:simplified md2))})
 
 (defn- upmd [old-meta new-parent]
-  {:pre [(valid-md? old-meta)
-         (coll? new-parent)
-         (not= clojure.lang.MapEntry (type new-parent))]
-   :post [(valid-md? %)]}
+  (comment {:pre [(valid-md? old-meta)
+                  (coll? new-parent)
+                  (not= clojure.lang.MapEntry (type new-parent))]
+            :post [(valid-md? %)]})
   (let [new-parent (with-meta new-parent old-meta)]
     {:top (or (:top old-meta) [new-parent])
      :up (cons [new-parent] (:up old-meta))
@@ -75,8 +75,8 @@
   (varname [this] false))
 
 (defn variable [symb]
-  {:pre [symb]
-   :post [(varname %)]}
+  (comment {:pre [symb]
+            :post [(varname %)]})
   (Var. symb))
 
 (defn grounded? [x]
@@ -109,37 +109,37 @@
 ;; CONSTRAINT STRUCTURES
 ;;
 
-(defn constraint-pair? [x]
+(comment defn constraint-pair? [x]
   (and (vector? x)
        (= 2 (count x))
        (-> x second coll?)))
 
-(defn constraint-coll? [x]
+(comment defn constraint-coll? [x]
   (and (or (nil? x) (coll? x))
        (every? constraint-pair? x)))
 
-(defn constraint-map? [x]
+(comment defn constraint-map? [x]
   (and (map? x) (constraint-coll? x)))
 
-(defn model? [x]
+(comment defn model? [x]
   (and (constraint-map? x)
        (every? varname (keys x))
        (every? (partial = 1) (map count (vals x)))))
 
 (defn merge-doms [coll1 coll2]
-  {:pre [(or (nil? coll1) (coll? coll1))
-         (or (nil? coll2) (coll? coll2))]
-   :post [(coll? %)]}
+  (comment {:pre [(or (nil? coll1) (coll? coll1))
+                  (or (nil? coll2) (coll? coll2))]
+            :post [(coll? %)]})
   (with-meta (ct/partial-intersection coll1 coll2)
              (merge-md (meta coll1) (meta coll2))))
 
 (defn constraints-as-mmap [constraints]
-  {:pre [(r/reduce (fn f
-                     ([b x y] (f b [x y]))
-                     ([b c] (and b (constraint-pair? c))))
-                   true
-                   constraints)]
-   :post [(constraint-map? %)]}
+  (comment {:pre [(r/reduce (fn f
+                              ([b x y] (f b [x y]))
+                              ([b c] (and b (constraint-pair? c))))
+                            true
+                            constraints)]
+            :post [(constraint-map? %)]})
   (->> constraints
        (r/reduce (fn f
                    ([m [k v]]
@@ -153,8 +153,8 @@
        persistent!))
 
 (defn model-as-subst-map [model]
-  {:pre [(model? model)]
-   :post [(map? %)]}
+  (comment {:pre [(model? model)]
+            :post [(map? %)]})
   (->> model
        (r/reduce (fn f
                    ([m [k v]] (f m k v))
@@ -175,8 +175,8 @@
 (def ^:private falsum [:inconsistent #{}])
 
 (defn unify [md x* x]
-  {:pre [(grounded? x)]
-   :post [(constraint-coll? %)]}
+  (comment {:pre [(grounded? x)]
+            :post [(constraint-coll? %)]})
   (let [t (unification-type x*)]
     (cond (= :not-a-coll t)
           [[x* (with-meta #{x} md)]]
@@ -205,8 +205,8 @@
 ;;
 
 (defn decompose-dom-terms [[x* dom :as constraint]]
-  {:pre [(coll? dom)]
-   :post [(constraint-coll? %)]}
+  (comment {:pre [(coll? dom)]
+            :post [(constraint-coll? %)]})
   (when (and (= 1 (count dom))
              (not (varname x*)))
     (unify (meta dom)
@@ -214,8 +214,8 @@
            (first dom))))
 
 (defn extract-contradictory-literals [[x* dom :as constraint]]
-  {:pre [(coll? dom)]
-   :post [(constraint-coll? %)]}
+  (comment {:pre [(coll? dom)]
+            :post [(constraint-coll? %)]})
   (when (and (not= falsum constraint)
              (-> x* coll? not)
              (-> x* varname not))
@@ -228,11 +228,11 @@
 (defn simplify-domains [!cache
                         known-values
                         [x* dom :as constraint]]
-  {:pre [(coll? dom)]
-   :post [(constraint-coll? %)]}
+  (comment {:pre [(coll? dom)]
+            :post [(constraint-coll? %)]})
   (let [{:keys [query const-map]} (generalize (ct/subst known-values x*))]
-    (assert query)
-    (assert (model? const-map))
+    (comment assert query)
+    (comment assert (model? const-map))
     (when (and (-> query varname not)
                (-> const-map count pos?)
                (-> dom meta :simplified (get x*) not))
@@ -257,8 +257,8 @@
        (into {})))
 
 (defn develop1 [!cache constraints]
-  {:pre [(constraint-coll? constraints)]
-   :post [(constraint-map? %)]}
+  (comment {:pre [(constraint-coll? constraints)]
+            :post [(constraint-map? %)]})
   (->> constraints
        (ct/cmapcat decompose-dom-terms)
        (ct/cmapcat extract-contradictory-literals)
@@ -271,8 +271,8 @@
   ((ct/cfix (partial develop1 !cache)) constraints))
 
 (defn quantify1 [m]
-  {:pre [(constraint-map? m)]
-   :post [(every? (partial constraint-coll?) %)]}
+  (comment {:pre [(constraint-map? m)]
+            :post [(every? (partial constraint-coll?) %)]})
   (let [[k dom :as kv]
         (->> m
              (r/filter (fn [[k dom]] (> (count dom) 1)))
@@ -295,9 +295,9 @@
 ;;
 
 (defn develop-all1 [!cache metaverse]
-  {:pre [(every? constraint-coll? metaverse)]
-   :post [(set? %)
-          (every? (partial constraint-map?) %)]}
+  (comment {:pre [(every? constraint-coll? metaverse)]
+            :post [(set? %)
+                   (every? (partial constraint-map?) %)]})
   (->> metaverse
        vec
 
@@ -320,9 +320,9 @@
 ;;
 
 (defn match-in [!cache x* dom]
-  {:pre [(coll? dom)
-         (grounded? dom)]
-   :post [(every? model? %)]}
+  (comment {:pre [(coll? dom)
+                  (grounded? dom)]
+            :post [(every? model? %)]})
   (develop-all !cache [[[x* dom]]]))
 
 (defn indexed-match-in [!cache x* dom ks]
@@ -330,20 +330,20 @@
              ks))
 
 (defn match-with [!cache xs* dom]
-  {:pre [(coll? xs*)
-         (coll? dom)
-         (grounded? dom)]
-   :post [(every? model? %)]}
+  (comment {:pre [(coll? xs*)
+                  (coll? dom)
+                  (grounded? dom)]
+            :post [(every? model? %)]})
   (->> [(map (fn [x*] [x* dom]) xs*)]
        (develop-all !cache)))
 
 (defn forward-match-with [!cache xs* dom narrowed-dom]
-  {:pre [(coll? xs*)
-         (coll? dom)
-         (grounded? dom)
-         (coll? narrowed-dom)
-         (set/subset? narrowed-dom dom)]
-   :post [(every? model? %)]}
+  (comment {:pre [(coll? xs*)
+                  (coll? dom)
+                  (grounded? dom)
+                  (coll? narrowed-dom)
+                  (set/subset? narrowed-dom dom)]
+            :post [(every? model? %)]})
   (let [step1 (->> xs*
                    (map (fn [x*] [x* (develop !cache [[x* dom]])]))
                    (into {}))]

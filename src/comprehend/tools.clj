@@ -17,8 +17,6 @@
                    (ns-name *ns*)
                    ". This will affect performance."))))
 
-(assert-notice)
-
 ;;
 ;; CORE.CACHE BASED MEMOIZATION
 ;;
