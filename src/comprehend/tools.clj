@@ -1,6 +1,7 @@
 (ns comprehend.tools
   (:refer-clojure :exclude [println memoize])
-  (:require [clojure.set :as set]
+  (:require [clojure.core.reducers :as r]
+            [clojure.set :as set]
             [clojure.walk :as w]
             [clojure.string :as string]
             [clojure.core.cache :as cache]))
@@ -51,6 +52,29 @@
 
 (defmacro fixpoint [[name val] expr]
   `((fix (fn [~name] ~expr)) ~val))
+
+(def ^:dynamic *!changed*)
+
+(defn cmapcat [f coll]
+  (let [!changed *!changed*]
+    (r/mapcat (fn [x]
+                (if-let [r (f x)]
+                  (do
+                    (reset! !changed true)
+                    r)
+                  [x]))
+              coll)))
+
+(defn cfix [f]
+  (fn [x]
+    (binding [*!changed* (atom false)]
+      (loop [x x]
+        (let [v (f x)]
+          (if @*!changed*
+            (do
+              (reset! *!changed* false)
+              (recur v))
+            v))))))
 
 ;;
 ;; OPERATIONS ON COLLECTIONS

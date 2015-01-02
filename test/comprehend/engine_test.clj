@@ -119,43 +119,43 @@
               z #{1}})))
 
     (testing "develop"
-      (is (= (->> (list [[x {y [x z]}] #{[1 {2 [1 3] :a :b}]}]
-                        [{100 y} #{{100 2}}])
-                  (develop1 !cache) ; without substitution of known values in keys, this test would require quantification
-                  (develop1 !cache)
-                  (develop1 !cache)
-                  model-as-subst-map)
-             {y 2, x 1, z 3}))
-      (is (= (->> (list [[x {y [x z]}] #{[1 {2 [1 3] :a :b}]}]
-                        [{100 y} #{{100 2}}]
-                        [{3 x} #{{3 4}}])
-                  (develop1 !cache)
-                  (develop1 !cache))
-             {:inconsistent #{}})))
+      (binding [ct/*!changed* (atom false)]
+        (is (= (->> (list [[x {y [x z]}] #{[1 {2 [1 3] :a :b}]}]
+                          [{100 y} #{{100 2}}])
+                    (develop1 !cache) ; without substitution of known values in keys, this test would require quantification
+                    (develop1 !cache)
+                    (develop1 !cache)
+                    model-as-subst-map)
+               {y 2, x 1, z 3}))
+        (is (= (->> (list [[x {y [x z]}] #{[1 {2 [1 3] :a :b}]}]
+                          [{100 y} #{{100 2}}]
+                          [{3 x} #{{3 4}}])
+                    (develop1 !cache)
+                    (develop1 !cache))
+               {:inconsistent #{}}))))
 
     (testing "quantify1"
-      (let [x-dom #{1 2 3}
-            m {x x-dom
-               y #{4 5 6 7}
-               z #{8}}]
-        (is (= (count x-dom) (count (quantify1 m))))
-        (is (= x-dom (->> (quantify1 m)
-                          (map (partial develop1 !cache))
-                          (map #(get % x))
-                          (map first)
-                          set))))
-      (is (= (-> {x #{2} y #{4}}
-                 quantify1
-                 set)
-             #{{x #{2} y #{4}}})))
+      (binding [ct/*!changed* (atom false)]
+        (let [x-dom #{1 2 3}
+              m {x x-dom
+                 y #{4 5 6 7}
+                 z #{8}}]
+          (is (= (count x-dom) (count (quantify1 m))))
+          (is (= x-dom (->> (quantify1 m)
+                            (map (partial develop1 !cache))
+                            (map #(get % x))
+                            (map first)
+                            set))))
+        (is (nil? (quantify1 {x #{2} y #{4}})))))
 
     (testing "develop-all"
-      (is (= (->> (list [[x {y [x z]}] #{[1 {2 [1 3] :a :b}]}]
-                        [{100 y} #{{100 2}}])
-                  list
-                  (develop-all !cache)
-                  (map model-as-subst-map))
-             [{x 1 y 2 z 3}])))
+      (binding [ct/*!changed* (atom false)]
+        (is (= (->> (list [[x {y [x z]}] #{[1 {2 [1 3] :a :b}]}]
+                          [{100 y} #{{100 2}}])
+                    list
+                    (develop-all !cache)
+                    (map model-as-subst-map))
+               [{x 1 y 2 z 3}]))))
 
     (testing "find models"
       (is (= (match-in !cache x #{1 2})

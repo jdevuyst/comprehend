@@ -172,7 +172,7 @@
         (coll? x) :set-like
         :else :not-a-coll))
 
-(def ^:private falsum [(variable :falsum) #{}])
+(def ^:private falsum [:inconsistent #{}])
 
 (defn unify [md x* x]
   {:pre [(grounded? x)]
@@ -207,22 +207,21 @@
 (defn decompose-dom-terms [[x* dom :as constraint]]
   {:pre [(coll? dom)]
    :post [(constraint-coll? %)]}
-  (if (and (= 1 (count dom))
-           (not (varname x*)))
+  (when (and (= 1 (count dom))
+             (not (varname x*)))
     (unify (meta dom)
            x*
-           (first dom))
-    [constraint]))
+           (first dom))))
 
 (defn extract-contradictory-literals [[x* dom :as constraint]]
   {:pre [(coll? dom)]
    :post [(constraint-coll? %)]}
-  (if (and (-> x* coll? not)
-           (-> x* varname not))
+  (when (and (not= falsum constraint)
+             (-> x* coll? not)
+             (-> x* varname not))
     (if (contains? (ct/as-set dom) x*)
       []
-      [falsum])
-    [constraint]))
+      [falsum])))
 
 (declare indexed-match-in)
 
@@ -234,9 +233,9 @@
   (let [{:keys [query const-map]} (generalize (ct/subst known-values x*))]
     (assert query)
     (assert (model? const-map))
-    (if (and (-> query varname not)
-             (-> const-map count pos?)
-             (-> dom meta :simplified (get x*) not))
+    (when (and (-> query varname not)
+               (-> const-map count pos?)
+               (-> dom meta :simplified (get x*) not))
       [[x* (as-> (ct/memoized !cache
                               indexed-match-in
                               !cache
@@ -248,8 +247,7 @@
                                       (vals %))
                            $)
                  (into #{} $)
-                 (with-meta $ (assoc (meta dom) :simplified #{x*})))]]
-      [constraint])))
+                 (with-meta $ (assoc (meta dom) :simplified #{x*})))]])))
 
 (defn collect-known-values [constraints]
   (->> constraints
@@ -262,15 +260,15 @@
   {:pre [(constraint-coll? constraints)]
    :post [(constraint-map? %)]}
   (->> constraints
-       (r/mapcat decompose-dom-terms)
-       (r/mapcat extract-contradictory-literals)
-       (r/mapcat (partial simplify-domains
-                          !cache
-                          (collect-known-values constraints)))
+       (ct/cmapcat decompose-dom-terms)
+       (ct/cmapcat extract-contradictory-literals)
+       (ct/cmapcat (partial simplify-domains
+                            !cache
+                            (collect-known-values constraints)))
        constraints-as-mmap))
 
-(defn develop [!cache constraints] ; XXX can be further optimized
-  ((ct/fix (partial develop1 !cache)) constraints))
+(defn develop [!cache constraints]
+  ((ct/cfix (partial develop1 !cache)) constraints))
 
 (defn quantify1 [m]
   {:pre [(constraint-map? m)]
@@ -285,19 +283,18 @@
                                    (= (count dom2) 2) reduced)
                            kv1))
                        nil))]
-    (if kv
+    (when kv
       (map (fn [v]
              (concat m
                      [[k (with-meta #{v}
                                     (meta dom))]]))
-           dom)
-      [m])))
+           dom))))
 
 ;;
 ;; OPERATIONS ON METAVERSES OF CONSTRAINT COLLECTIONS
 ;;
 
-(defn develop-all1 [!cache metaverse] ; XXX can be further optimized
+(defn develop-all1 [!cache metaverse]
   {:pre [(every? constraint-coll? metaverse)]
    :post [(set? %)
           (every? (partial constraint-map?) %)]}
@@ -305,7 +302,7 @@
        vec
 
        (r/map (partial develop !cache))
-       (r/mapcat quantify1)
+       (ct/cmapcat quantify1)
        (r/filter (comp not :inconsistent))
        (r/map constraints-as-mmap)
 
@@ -316,7 +313,7 @@
                conj)))
 
 (defn develop-all [!cache metaverse]
-  ((ct/fix (partial develop-all1 !cache)) metaverse))
+  ((ct/cfix (partial develop-all1 !cache)) metaverse))
 
 ;;
 ;; FINDING MODELS

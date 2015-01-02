@@ -161,8 +161,8 @@
         (reload)
         (println "done.")
 
-        (with-bindings [*N* 25]
-                       (run-tests this-ns-name))
+        (binding [*N* 25]
+          (run-tests this-ns-name))
         (newline)
 
         (set! *assert* prev-assert-val)
