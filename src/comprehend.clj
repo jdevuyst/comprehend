@@ -4,8 +4,6 @@
             [comprehend.tools :as ct]
             [clojure.core.cache :as cache]))
 
-(ct/assert-notice)
-
 (declare indexed-set indexed-set?
          unbound-symbols
          comprehend* up* top*)
@@ -18,12 +16,27 @@
   (conjd-root-el [_ v])
   (disjd-root-el [_ v]))
 
-; XXX the following defaults may be reconsidered at some point
+; XXX there's more potential in these hooks
 (extend-protocol CacheProtocolExtension
-  clojure.core.cache.BasicCache
+  clojure.core.cache.TTLCache
   (conjd-root-el [c v] c)
   (disjd-root-el [c v] c)
+  clojure.core.cache.LUCache
+  (conjd-root-el [c v] c)
+  (disjd-root-el [c v] c)
+  clojure.core.cache.LRUCache
+  (conjd-root-el [c v] c)
+  (disjd-root-el [c v] c)
+  clojure.core.cache.FIFOCache
+  (conjd-root-el [c v] c)
+  (disjd-root-el [c v] c)
+  clojure.core.cache.BasicCache
+  (conjd-root-el [c v] (empty c))
+  (disjd-root-el [c v] (empty c))
   clojure.core.cache.SoftCache
+  (conjd-root-el [c v] c)
+  (disjd-root-el [c v] c)
+  clojure.core.cache.LIRSCache
   (conjd-root-el [c v] c)
   (disjd-root-el [c v] c))
 
