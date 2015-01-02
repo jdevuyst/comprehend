@@ -144,7 +144,7 @@
           (println "s3 - s2: " (set/difference s3 s2))))
       (is (pos? (count @!v1)) "Try generating more edges"))))
 
-(def ^:dynamic *N* (int (+ 8 (rand 20))))
+(def ^:dynamic *N* (+ 13 (int (rand 10))))
 
 (deftest benchmark-test (run-benchmark *N*))
 
@@ -152,24 +152,26 @@
   (defn reload []
     (require [this-ns-name] :reload-all))
 
-  (defn benchmark []
-    (let [prev-assert-val *assert*]
-      (try
-        (print "Reloading with assertions disabled... ")
-        (flush)
-        (set! *assert* false)
-        (reload)
-        (println "done.")
+  (defn benchmark
+    ([] (benchmark 25))
+    ([n]
+     (let [prev-assert-val *assert*]
+       (try
+         (print "Reloading with assertions disabled... ")
+         (flush)
+         (set! *assert* false)
+         (reload)
+         (println "done.")
 
-        (binding [*N* 25]
-          (run-tests this-ns-name))
-        (newline)
+         (binding [*N* n]
+           (run-tests this-ns-name))
+         (newline)
 
-        (set! *assert* prev-assert-val)
-        (when *assert*
-          (println "Re-enabling assertions:")
-          (reload))
+         (set! *assert* prev-assert-val)
+         (when *assert*
+           (println "Re-enabling assertions:")
+           (reload))
 
-        (catch Exception x
-          (set! *assert* prev-assert-val)
-          (throw x))))))
+         (catch Exception x
+           (set! *assert* prev-assert-val)
+           (throw x)))))))
