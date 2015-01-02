@@ -153,25 +153,8 @@
     (require [this-ns-name] :reload-all))
 
   (defn benchmark
-    ([] (benchmark 25))
-    ([n]
-     (let [prev-assert-val *assert*]
-       (try
-         (print "Reloading with assertions disabled... ")
-         (flush)
-         (set! *assert* false)
-         (reload)
-         (println "done.")
-
-         (binding [*N* n]
-           (run-tests this-ns-name))
-         (newline)
-
-         (set! *assert* prev-assert-val)
-         (when *assert*
-           (println "Re-enabling assertions:")
-           (reload))
-
-         (catch Exception x
-           (set! *assert* prev-assert-val)
-           (throw x)))))))
+    ([] (benchmark 5 10 15 20 25))
+    ([& ns]
+     (doseq [n ns]
+       (binding [*N* n]
+         (run-tests this-ns-name))))))
