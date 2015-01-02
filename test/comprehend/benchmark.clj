@@ -53,7 +53,9 @@
 
 (defn run-benchmark [n]
   (testing (str "Benchmark with N=" n)
-    (println (str "Benchmark with N=" n))
+    (print (str "Setting up benchmark with N=" n "... "))
+    (flush)
+
     (let [!G (atom nil)
           !S (atom nil)
           !M (atom nil)
@@ -61,19 +63,20 @@
           !v2 (atom nil)
           !v3 (atom nil)
           !v4 (atom nil)]
-      (reset! !G (vec (make-graph n n)))
+      (time (do
+              (reset! !G (vec (make-graph n n)))
 
-      (reset! !S (reduce conj (c/indexed-set) @!G))
+              (reset! !S (reduce conj (c/indexed-set) @!G))
 
-      (reset! !M (c/indexed-set (reduce (fn [m [a b :as v]]
-                                          (when (= 2 (count v))
-                                            (assoc m a (conj (get m a #{})
-                                                             b))))
-                                        {}
-                                        @!G)))
+              (reset! !M (c/indexed-set (reduce (fn [m [a b :as v]]
+                                                  (when (= 2 (count v))
+                                                    (assoc m a (conj (get m a #{})
+                                                                     b))))
+                                                {}
+                                                @!G)))
 
-      (swap! !S c/index (cache/basic-cache-factory {}))
-      (swap! !M c/index (cache/basic-cache-factory {}))
+              (swap! !S c/index (cache/basic-cache-factory {}))
+              (swap! !M c/index (cache/basic-cache-factory {}))))
 
       (print "Finding paths using comprehend and the set of pairs... ")
       (flush)

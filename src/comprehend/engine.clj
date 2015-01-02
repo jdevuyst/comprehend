@@ -10,14 +10,15 @@
 ;; DOMAIN METADATA
 ;;
 
-(comment defn- valid-md? [md]
-  (or (nil? md)
-      (and (map? md)
-           (or (-> md :top nil?)
-               (-> md :top coll?))
-           (or (-> md :up nil?)
-               (and (-> md :up coll?)
-                    (every? coll? (:up md)))))))
+(comment
+  (defn- valid-md? [md]
+    (or (nil? md)
+        (and (map? md)
+             (or (-> md :top nil?)
+                 (-> md :top coll?))
+             (or (-> md :up nil?)
+                 (and (-> md :up coll?)
+                      (every? coll? (:up md))))))))
 
 (defn- merge-md [md1 md2]
   (comment {:pre [(valid-md? md1)
@@ -109,22 +110,23 @@
 ;; CONSTRAINT STRUCTURES
 ;;
 
-(comment defn constraint-pair? [x]
-  (and (vector? x)
-       (= 2 (count x))
-       (-> x second coll?)))
+(comment
+  (defn constraint-pair? [x]
+    (and (vector? x)
+         (= 2 (count x))
+         (-> x second coll?)))
 
-(comment defn constraint-coll? [x]
-  (and (or (nil? x) (coll? x))
-       (every? constraint-pair? x)))
+  (defn constraint-coll? [x]
+    (and (or (nil? x) (coll? x))
+         (every? constraint-pair? x)))
 
-(comment defn constraint-map? [x]
-  (and (map? x) (constraint-coll? x)))
+  (defn constraint-map? [x]
+    (and (map? x) (constraint-coll? x)))
 
-(comment defn model? [x]
-  (and (constraint-map? x)
-       (every? varname (keys x))
-       (every? (partial = 1) (map count (vals x)))))
+  (defn model? [x]
+    (and (constraint-map? x)
+         (every? varname (keys x))
+         (every? (partial = 1) (map count (vals x))))))
 
 (defn merge-doms [coll1 coll2]
   (comment {:pre [(or (nil? coll1) (coll? coll1))
