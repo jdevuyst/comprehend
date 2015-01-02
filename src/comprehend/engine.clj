@@ -309,13 +309,11 @@
        (r/filter (comp not :inconsistent))
        (r/map constraints-as-mmap)
 
-       (r/fold 1
-               (fn
-                 ([] #{})
-                 ([x y] (set/union x y)))
-               (fn
-                 ([] #{})
-                 ([coll x] (conj coll x))))))
+       (r/fold (inc (/ (count metaverse)
+                       (.. Runtime getRuntime availableProcessors)
+                       4))
+               set/union
+               conj)))
 
 (defn develop-all [!cache metaverse]
   ((ct/fix (partial develop-all1 !cache)) metaverse))

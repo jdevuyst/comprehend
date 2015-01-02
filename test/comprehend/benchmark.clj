@@ -53,6 +53,7 @@
 
 (defn run-benchmark [n]
   (testing (str "Benchmark with N=" n)
+    (println (str "Benchmark with N=" n))
     (let [!G (atom nil)
           !S (atom nil)
           !M (atom nil)
@@ -143,7 +144,9 @@
           (println "s3 - s2: " (set/difference s3 s2))))
       (is (pos? (count @!v1)) "Try generating more edges"))))
 
-(deftest benchmark-test (run-benchmark 20))
+(def ^:dynamic *N* (int (+ 8 (rand 20))))
+
+(deftest benchmark-test (run-benchmark *N*))
 
 (let [this-ns-name (ns-name *ns*)]
   (defn reload []
@@ -158,7 +161,8 @@
         (reload)
         (println "done.")
 
-        (run-tests this-ns-name)
+        (with-bindings [*N* 25]
+                       (run-tests this-ns-name))
         (newline)
 
         (set! *assert* prev-assert-val)
