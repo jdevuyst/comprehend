@@ -1,4 +1,4 @@
-(defproject comprehend "0.6.2-SNAPSHOT"
+(defproject comprehend "0.6.2"
   :description "In-memory database modeled on sets, not tables. Comprehend supports pattern matching, forward matching, rewriting, and transactional storage."
   :url "https://github.com/jdevuyst/comprehend"
   :license {:name "Eclipse Public License"
