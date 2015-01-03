@@ -2,9 +2,8 @@
   (:require [comprehend.tools :as ct]
             [clojure.set :as set]
             [clojure.walk :as w]
-            [clojure.core.reducers :as r]))
-
-(comment ct/assert-notice)
+            [clojure.core.reducers :as r]
+            [fletching.macros :refer :all]))
 
 ;;
 ;; DOMAIN METADATA
@@ -238,18 +237,17 @@
     (when (and (-> query varname not)
                (-> const-map count pos?)
                (-> dom meta :simplified (get x*) not))
-      [[x* (as-> (ct/memoized !cache
-                              indexed-match-in
-                              !cache
-                              query
-                              dom
-                              (keys const-map)) $
-                 ($ const-map)
-                 (r/mapcat #(r/mapcat (comp :top meta)
-                                      (vals %))
-                           $)
-                 (into #{} $)
-                 (with-meta $ (assoc (meta dom) :simplified #{x*})))]])))
+      [[x* (-> (ct/memoized !cache
+                            indexed-match-in
+                            !cache
+                            query
+                            dom
+                            (keys const-map))
+               (>< const-map)
+               (>> r/mapcat #(r/mapcat (comp :top meta)
+                                       (vals %)))
+               (>> into #{})
+               (with-meta (assoc (meta dom) :simplified #{x*})))]])))
 
 (defn collect-known-values [constraints]
   (->> constraints
@@ -336,8 +334,7 @@
                   (coll? dom)
                   (grounded? dom)]
             :post [(every? model? %)]})
-  (->> [(map (fn [x*] [x* dom]) xs*)]
-       (develop-all !cache)))
+  (develop-all !cache [(map (fn [x*] [x* dom]) xs*)]))
 
 (defn forward-match-with [!cache xs* dom narrowed-dom]
   (comment {:pre [(coll? xs*)

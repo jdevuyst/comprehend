@@ -4,7 +4,8 @@
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.6.0"]
-                 [org.clojure/core.cache "0.6.4"]]
+                 [org.clojure/core.cache "0.6.4"]
+                 [fletching-macros "0.9"]]
   :global-vars {*assert* false}
   :profiles {:dev {:global-vars {*assert* true}
                    :dependencies [[org.clojure/core.logic "0.8.8"]

@@ -12,7 +12,7 @@ Comprehend also comes with a mutable abstraction for indexed sets. This abstract
 
 To start, create a [Leiningen](http://leiningen.org) project and add the following dependency to `project.clj`:
 
-![Clojars Project](http://clojars.org/comprehend/latest-version.svg)
+![Clojars Project](https://clojars.org/comprehend/latest-version.svg)
 
 Next, load Comprehend as follows:
 
