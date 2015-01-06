@@ -220,7 +220,7 @@
   (when (and (not= falsum constraint)
              (-> x* coll? not)
              (-> x* varname not))
-    (if (contains? (ct/as-set dom) x*)
+    (if (contains? (set dom) x*)
       []
       [falsum])))
 

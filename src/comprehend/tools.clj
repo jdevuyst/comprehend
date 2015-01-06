@@ -78,20 +78,13 @@
 ;; OPERATIONS ON COLLECTIONS
 ;;
 
-(defn as-set [coll]
-  {:pre [(coll? coll)]
-   :post [(set? %)]}
-  (if (set? coll)
-    coll
-    (set coll)))
-
 (defn partial-intersection
   "Set-intersection, with nil treated as the universal set."
   [s1 s2]
   {:pre [(or (nil? s1) (coll? s1))
          (or (nil? s2) (coll? s2))]
    :post [(or (nil? %) (coll? %))]}
-  (cond (and s1 s2) (set/intersection (as-set s1) (as-set s2))
+  (cond (and s1 s2) (set/intersection (set s1) (set s2))
         s1 s1
         :else s2))
 
