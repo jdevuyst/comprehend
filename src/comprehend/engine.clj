@@ -89,13 +89,13 @@
 ; iff (compare (hash a) (hash b)) = (compare (hash c) (hash d))
 ; (de Bruijn indices do not appear to help with this)
 (defn generalize [x*]
-  (let [!consts (atom {})
-        !vars (atom {})
-        !counter (atom 0)
+  (let [!consts (volatile! {})
+        !vars (volatile! {})
+        !counter (volatile! 0)
         f (fn [!m y]
             (or (@!m y)
-                (let [y* (variable [::temp (swap! !counter inc)])]
-                  (swap! !m assoc y y*)
+                (let [y* (variable [::temp (vswap! !counter inc)])]
+                  (vswap! !m assoc y y*)
                   y*)))]
     {:query (w/prewalk #(cond (varname %) (f !vars %)
                               (grounded? %) (f !consts %)
