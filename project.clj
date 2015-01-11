@@ -3,13 +3,14 @@
   :url "https://github.com/jdevuyst/comprehend"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
+  :plugins [[lein-ancient "0.5.5"]]
   :dependencies [[org.clojure/clojure "1.7.0-alpha4"]
                  [org.clojure/core.cache "0.6.4"]
                  [fletching-macros "0.9"]]
   :global-vars {*assert* false}
   :profiles {:dev {:global-vars {*assert* true}
-                   :dependencies [[org.clojure/core.logic "0.8.8"]
-                                  [org.clojure/math.combinatorics "0.0.7"]
+                   :dependencies [[org.clojure/core.logic "0.8.9"]
+                                  [org.clojure/math.combinatorics "0.0.8"]
                                   [print-foo "1.0.1"]]
                    :injections [(require '[clojure.set :as set])
                                 (require '[clojure.walk :as w])
