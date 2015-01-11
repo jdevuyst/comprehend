@@ -23,6 +23,9 @@
     (is (= (.hashCode (indexed-set 1 2)) (hash (indexed-set 1 2))))
     (is (not= (hash (indexed-set 1 2)) (hash (indexed-set 1 2 3))))
     (is (= (empty (indexed-set 1 2 3)) (indexed-set)))
+    (let [m {:a :b}
+          s (with-meta #{1 2} m)]
+      (is (= m (meta s) (-> s empty meta) (-> s index empty meta))))
     (is (= (indexed-set 1 2) (indexed-set 1 2)))
     (is (not= (indexed-set 1 2) (indexed-set 1 2 3)))
     (is (.equals (indexed-set 1 2) (indexed-set 1 2)))

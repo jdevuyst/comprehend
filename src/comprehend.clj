@@ -4,9 +4,7 @@
             [comprehend.tools :as ct]
             [clojure.core.cache :as cache]))
 
-(declare indexed-set indexed-set?
-         unbound-symbols
-         comprehend* up* top*)
+(declare indexed-set? index unbound-symbols comprehend* up* top*)
 
 ;;
 ;; PUBLIC API
@@ -55,7 +53,7 @@
                         (assoc m k (conj v o)))
                       {}
                       markers)))
-  (empty [this] (indexed-set))
+  (empty [this] (-> hs empty index))
   (equiv [this o] (or (identical? this o)
                       (and (indexed-set? o)
                            (.equiv hs (.-hs o))
