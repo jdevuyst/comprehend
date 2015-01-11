@@ -1,10 +1,10 @@
-(defproject comprehend "0.6.4-SNAPSHOT"
+(defproject comprehend "0.6.5-SNAPSHOT"
   :description "In-memory database modeled on sets, not tables. Comprehend supports pattern matching, forward matching, rewriting, and transactional storage."
   :url "https://github.com/jdevuyst/comprehend"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :plugins [[lein-ancient "0.5.5"]]
-  :dependencies [[org.clojure/clojure "1.7.0-alpha4"]
+  :dependencies [[org.clojure/clojure "1.7.0-alpha5"]
                  [org.clojure/core.cache "0.6.4"]
                  [fletching-macros "0.9"]]
   :global-vars {*assert* false}

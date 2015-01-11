@@ -16,10 +16,10 @@
 (deftest all-tests
   (testing "Interfaces"
     (invariance-test S (set (seq S)))
-    (invariance-test S (set S))
+    (invariance-test S (unindex S))
     (invariance-test S (count S))
-    (let [a (gensym)] (invariance-test S (set (conj S a))))
-    (invariance-test S (set (conj S (first S))))
+    (let [a (gensym)] (invariance-test S (unindex (conj S a))))
+    (invariance-test S (unindex (conj S (first S))))
     (is (= (.hashCode (indexed-set 1 2)) (hash (indexed-set 1 2))))
     (is (not= (hash (indexed-set 1 2)) (hash (indexed-set 1 2 3))))
     (is (= (empty (indexed-set 1 2 3)) (indexed-set)))
@@ -27,8 +27,8 @@
     (is (not= (indexed-set 1 2) (indexed-set 1 2 3)))
     (is (.equals (indexed-set 1 2) (indexed-set 1 2)))
     (is (not (.equals (indexed-set 1 2) (indexed-set 1 2 3))))
-    (let [a (gensym)] (invariance-test S (set (disj (conj S a) a))))
-    (invariance-test S (set (disj S (gensym))))
+    (let [a (gensym)] (invariance-test S (unindex (disj (conj S a) a))))
+    (invariance-test S (unindex (disj S (gensym))))
     (invariance-test S (contains? S (first S)))
     (invariance-test S (contains? S (gensym)))
     (is (not (contains? (c/indexed-set) (gensym))))
@@ -250,9 +250,9 @@
       (is (= m (meta (mark s :a :b :c))))))
   (testing "up/top"
     (is (= (c/comprehend (c/indexed-set [1 [2 [3]]])
-                                 [x [y [z]]]
-                                 (c/up z 2))
-                   '(([2 [3]]))))
+                         [x [y [z]]]
+                         (c/up z 2))
+           '(([2 [3]]))))
     (is (= (c/comprehend (c/indexed-set [1 [2 [3]]])
                          [x [y [z]]]
                          (c/top z))
@@ -310,7 +310,7 @@
     (is (not (indexed-set? (hash-set 1 2))))))
 
 (deftest README-examples
-  (is (= (set (c/indexed-set 1 2 3))
+  (is (= (unindex (c/indexed-set 1 2 3))
          (hash-set 1 3 2 3)))
   (let [s (c/indexed-set [:person 1] [:person 2] [:person 3]
                          [:parent-of 1 2] [:parent-of 2 3] [:parent-of 3 4])]
@@ -336,9 +336,9 @@
                        [(dec 1) x]
                        x)
          '(1)))
-  (is (= (set (c/rcomprehend [s (c/indexed-set [1] [3] [5] [7] [9])]
-                             [x]
-                             (conj s [(inc x)])))
+  (is (= (unindex (c/rcomprehend [s (c/indexed-set [1] [3] [5] [7] [9])]
+                                 [x]
+                                 (conj s [(inc x)])))
          #{[1] [2] [3] [4] [5] [6] [7] [8] [9] [10]}))
   (is (= (c/rcomprehend [s (c/indexed-set [1] [2] [3])]
                         [x]
@@ -350,8 +350,8 @@
          (list (c/indexed-set [1] [2])
                (c/indexed-set [1] [2]))))
   (is (= (c/comprehend (c/indexed-set [1 2 3])
-              [x y 3]
-              (c/up x))
+                       [x y 3]
+                       (c/up x))
          '(([1 2 3]))))
   (is (= (set (c/comprehend (c/indexed-set {:a 1} {:b 1} {:a 2 :b 2})
                             {:a x}
@@ -367,11 +367,11 @@
                        (set (c/top x)))
          '(#{#{2 [:a]} #{3 [[:a]]}})))
   (as-> (c/indexed-set '[#{[([1])]}] '[#{[([2])]}] '[#{[([3])]}] '[#{[([4])]}]) $
-    (c/comprehend $
-                  [#{[[[x]]]}]
-                  (is (list? (first (c/up x 2)))))
-    (doall $)
-    (is (= (count $) 4)))
+        (c/comprehend $
+                      [#{[[[x]]]}]
+                      (is (list? (first (c/up x 2)))))
+        (doall $)
+        (is (= (count $) 4)))
   (is (= (-> (indexed-set 1)
              (mark :a :b)
              (conj 2)
@@ -435,16 +435,17 @@
              (conj 2)
              (mark :a))))
   (is (not= (c/indexed-set 1) #{1}))
-  (is (= (set (c/rcomprehend [s (c/indexed-set [1 2] [2 3] [3 4])]
-                             [a b]
-                             [b c]
-                             (conj s [a c])))
+  (is (not= #{1} (c/indexed-set 1)))
+  (is (= (unindex (c/rcomprehend [s (c/indexed-set [1 2] [2 3] [3 4])]
+                                 [a b]
+                                 [b c]
+                                 (conj s [a c])))
          #{[1 2] [2 3] [3 4] [1 3] [2 4]}))
-  (is (= (set (ctools/fixpoint [s (c/indexed-set [1 2] [2 3] [3 4])]
-                               (c/rcomprehend [s' s]
-                                              [a b]
-                                              [b c]
-                                              (conj s' [a c]))))
+  (is (= (unindex (ctools/fixpoint [s (c/indexed-set [1 2] [2 3] [3 4])]
+                                   (c/rcomprehend [s' s]
+                                                  [a b]
+                                                  [b c]
+                                                  (conj s' [a c]))))
          #{[1 2] [2 3] [3 4] [1 3] [2 4] [1 4]})))
 
 (let [this-ns-name (ns-name *ns*)]

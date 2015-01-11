@@ -196,7 +196,7 @@
           :else ; list-like
           (mapcat unify
                   (repeat (if (= (type x) clojure.lang.MapEntry)
-                            (upmd md (vec x))
+                            (upmd md [(key x) (val x)])
                             (upmd md x)))
                   x*
                   x))))
