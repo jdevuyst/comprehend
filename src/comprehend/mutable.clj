@@ -82,11 +82,11 @@
 
 (defn- rate-limit-io
   ([io] (rate-limit-io io 250))
-  ([io sec] (fn
+  ([io msec] (fn
               ([] (io))
               ([s diff]
                (io s diff)
-               (Thread/sleep sec)))))
+               (Thread/sleep msec)))))
 
 (defn- edn-file-io [filename]
   (fn
