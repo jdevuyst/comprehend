@@ -248,7 +248,7 @@ Here, `s` can either be an indexed or a regular set; `cache` is expected to be a
 
 The purpose of `c/CacheProtocolExtension` is to allow for caching mechanisms that evict obsolete intermediate results as elements are added or removed. Such a cache is currently not included out of the box, however.
 
-Notice that for some types of caches it might be useful to inspect the cache key. This key is defined as `[f args]` and its associated value is `(apply f args)`.
+Notice that for some types of caches it might be useful to inspect the cache key. This key is defined as `[f args]` and its associated value is `(delay (apply f args))`.
 
 ## Other features
 
