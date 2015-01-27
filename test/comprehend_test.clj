@@ -195,7 +195,32 @@
                (into [4 5 6])
                (as-> s (comprehend :mark :a s x x))
                set)
-           #{4 5 6})))
+           #{4 5 6}))
+    (is (= (c/comprehend :mark :marker
+                         (-> (c/indexed-set)
+                             (c/mark :marker)
+                             (conj [1 2])
+                             (conj [2 3]))
+                         [a b]
+                         [b c]
+                         [a b c])
+           (c/comprehend :mark :marker
+                         (-> (c/indexed-set)
+                             (conj [1 2])
+                             (c/mark :marker)
+                             (conj [2 3]))
+                         [a b]
+                         [b c]
+                         [a b c])
+           '([1 2 3])))
+    (is (nil? (c/comprehend :mark :marker
+                            (-> (c/indexed-set)
+                                (conj [1 2])
+                                (conj [2 3])
+                                (c/mark :marker))
+                            [a b]
+                            [b c]
+                            [a b c]))))
   (testing "Strong equality and index integrity"
     (let [S (-> (indexed-set)
                 (mark :a :b)
