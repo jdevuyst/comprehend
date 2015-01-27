@@ -4,7 +4,7 @@ Clojure in-memory database modeled on sets, not tables. Comprehend supports patt
 
 Comprehend contains a data structure for immutable indexed sets and a macro `comprehend` for pattern matching on such sets. It also comes with features that make it easy to update indexed sets based on pre-existing patterns.
 
-Indexed sets effectively serve as in-memory databases, but are just as easy to set up as native Clojure sets. The syntax for the `comprehend` macro is reminiscent of the set comprehension idiom {expr : {pattern1, pattern2, …} ⊆ S}.
+Indexed sets effectively serve as in-memory databases, but are just as easy to set up as native Clojure sets. The syntax for the `comprehend` macro is reminiscent of the [set comprehension](https://en.wikipedia.org/wiki/Set-builder_notation) idiom {expr : {pattern1, pattern2, …} ⊆ S}.
 
 Comprehend also comes with a mutable abstraction for indexed sets. This abstraction can be used as a transactional flat-file database.
 
@@ -304,7 +304,9 @@ Similarly, `(ct/fix f)` returns a function that iteratively applies `f` to its a
 
 ## Further information
 
-For more information see [this blog post](http://jdevuyst.blogspot.com/2015/01/comprehend-new-engine.html).
+For more information see these blog posts:
+- [Comprehend is now a lot faster](https://jdevuyst.blogspot.com/2015/01/comprehend-new-engine.html).
+- [Live queries in Comprehend](https://jdevuyst.blogspot.com/2015/01/comprehend-live-queries.html)
 
 More examples:
 
