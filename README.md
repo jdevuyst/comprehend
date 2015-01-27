@@ -246,7 +246,9 @@ By default, indexed sets use a soft cache. This means that the responsibility of
 
 Here, `s` can either be an indexed or a regular set; `cache` is expected to be an object that implements both `clojure.core.cache/CacheProtocol` from [`core.cache`](https://github.com/clojure/core.cache) and `c/CacheProtocolExtension`.
 
-Notice that the purpose of `c/CacheProtocolExtension` is to allow for caching mechanisms that evict intermediate results (only) when they become invalid. Such a cache is currently not included out of the box, however.
+The purpose of `c/CacheProtocolExtension` is to allow for caching mechanisms that evict obsolete intermediate results as elements are added or removed. Such a cache is currently not included out of the box, however.
+
+Notice that for some types of caches it might be useful to inspect the cache key. This key is defined as `[f args]` and its associated value is `(apply f args)`.
 
 ## Other features
 
@@ -305,7 +307,7 @@ Similarly, `(ct/fix f)` returns a function that iteratively applies `f` to its a
 ## Further information
 
 For more information see these blog posts:
-- [Comprehend is now a lot faster](https://jdevuyst.blogspot.com/2015/01/comprehend-new-engine.html).
+- [Comprehend is now a lot faster](https://jdevuyst.blogspot.com/2015/01/comprehend-new-engine.html)
 - [Live queries in Comprehend](https://jdevuyst.blogspot.com/2015/01/comprehend-live-queries.html)
 
 More examples:
