@@ -4,8 +4,7 @@
             [comprehend.engine :refer :all]
             [clojure.walk :as w]
             [clojure.core.cache :as cache]
-            [clojure.core.reducers :as r]
-            [print.foo :refer [print-and-return print-defn print-cond print-if print-let print-> print->>]]))
+            [clojure.core.reducers :as r]))
 
 (def VarType comprehend.engine.Var)
 
