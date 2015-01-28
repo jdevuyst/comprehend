@@ -47,12 +47,14 @@
   clojure.lang.IPersistentSet
   (seq [this] (.seq hs))
   (cons [this o]
-        (Set. (.cons hs o)
-              (atom (conjd-root-el @!cache o))
-              (reduce (fn [m [k v]]
-                        (assoc m k (conj v o)))
-                      {}
-                      markers)))
+        (if (.contains hs o)
+          this
+          (Set. (.cons hs o)
+                (atom (conjd-root-el @!cache o))
+                (reduce (fn [m [k v]]
+                          (assoc m k (conj v o)))
+                        {}
+                        markers))))
   (empty [this] (-> hs empty index))
   (equiv [this o] (or (identical? this o)
                       (and (indexed-set? o)

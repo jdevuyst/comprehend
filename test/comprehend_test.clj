@@ -3,8 +3,7 @@
             [comprehend :refer :all]
             [comprehend :as c]
             [comprehend.tools :as ctools]
-            [clojure.walk :as w]
-            [print.foo :refer [print-and-return print-defn print-cond print-if print-let print-> print->>]]))
+            [clojure.walk :as w]))
 
 (defmacro invariance-test [varname expr]
   `(is (= ~@(map (fn [X]
@@ -221,7 +220,7 @@
                             [a b]
                             [b c]
                             [a b c]))))
-  (testing "Strong equality and index integrity"
+  (testing "Equality"
     (let [S (-> (indexed-set)
                 (mark :a :b)
                 (into '([[:test] [[[#{:a}]]]]
@@ -238,6 +237,12 @@
       (is (not (strong= S (conj S a))))
       (is (strong= S (disj S a)))
       (is (strong= (conj S a) (conj (conj S a) a)))
+      (is (= '(2) (c/comprehend :mark :a
+                                (-> (c/indexed-set 1)
+                                    (c/mark :a)
+                                    (into [1 2]))
+                                x
+                                x)))
       (is (strong= (conj S a) (-> S (conj a) (disj a) (conj a))))
       (is (strong= S (conj (disj S a) (first S))))
       (is (strong= S (disj (conj S a) a)))
